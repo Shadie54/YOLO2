@@ -1,69 +1,43 @@
+# test.py
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow
-from PyQt6.QtGui import QPainter, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene
+from PyQt6.QtWidgets import QApplication, QToolTip
+from PyQt6.QtGui import QColor
+from gui_main import MainWindow
+from items import YoloBox
 
-from tools import ToolManager
-from items import BezierPoint
+def fake_yolo_detections():
+    """
+    Simuluje YOLO detekcie: (x, y, w, h, label)
+    - text "foto" + čísla
+    - šípky
+    """
+    return [
+        (50, 50, 100, 40, "foto 1"),       # text foto 1
+        (200, 60, 80, 20, "arrow_right"),  # šípka
+        (50, 120, 120, 50, "foto 4/21"),   # text foto s číslami
+        (250, 150, 60, 30, "arrow_up")     # šípka
+    ]
 
-class TestView(QGraphicsView):
-    def __init__(self):
-        super().__init__()
-        self.scene = QGraphicsScene()
-        self.setScene(self.scene)
-        self.tool_manager = ToolManager(self)
-        self.setRenderHints(self.renderHints() | QPainter.RenderHint.Antialiasing)
-        self.setDragMode(self.DragMode.ScrollHandDrag)
-
-    def mousePressEvent(self, event):
-        self.tool_manager.mousePressEvent(event)
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        self.tool_manager.mouseMoveEvent(event)
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        self.tool_manager.mouseReleaseEvent(event)
-        super().mouseReleaseEvent(event)
-
-    def keyPressEvent(self, event):
-        self.tool_manager.keyPressEvent(event)
-        super().keyPressEvent(event)
-
-    def undo(self):
-        if not self.undo_stack:
-            return
-        item = self.undo_stack.pop()
-        if item.scene():
-            self.scene.removeItem(item)
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Bezier Preview Test")
-        self.view = TestView()
-        self.setCentralWidget(self.view)
-
-        # nastav nástroj na POLYCURVE pre test
-        self.view.tool_manager.set_tool("POLYCURVE")
-
-        # shortcut ENTER na commit
-        sc = QShortcut(QKeySequence(Qt.Key.Key_Return), self)
-        sc.activated.connect(lambda: self.view.tool_manager.keyPressEvent(
-            type('E', (), {'key': lambda: Qt.Key.Key_Return})()
-        ))
-
-        # shortcut ESC na zrušenie
-        sc2 = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
-        sc2.activated.connect(lambda: self.view.tool_manager.keyPressEvent(
-            type('E', (), {'key': lambda: Qt.Key.Key_Escape})()
-        ))
+def add_predicted_boxes(view, detections):
+    """Pridá predikované boxy (modré, polopriesvitné)"""
+    for det in detections:
+        x, y, w, h, label = det
+        box = YoloBox(rect=view.scene.addRect(x, y, w, h).rect(), label=label)
+        box.setFlag(box.GraphicsItemFlag.ItemIsSelectable, True)
+        box.setFlag(box.GraphicsItemFlag.ItemIsMovable, True)
+        box.setOpacity(0.5)
+        box.setBrush(QColor(0, 0, 255, 50))  # modrá, polopriesvitná
+        box.setToolTip(label)
+        view.scene.addItem(box)
+        view.undo_stack.append(box)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
-    window.resize(800,600)
+    window.resize(1300, 900)
     window.show()
+
+    # pridanie testovacích YOLO boxov
+    add_predicted_boxes(window.view, fake_yolo_detections())
+
     sys.exit(app.exec())
