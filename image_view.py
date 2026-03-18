@@ -7,19 +7,19 @@ class ImageView(QGraphicsView):
         super().__init__()
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
+
         self.pixmap_item = None
-        self.preview_rect = None
-        self.start_pos = None
-        self.drawing = False
         self.undo_stack = []
         self.tool_manager = None
+        self.drawing = False
 
+        # render + zoom
         self.setRenderHints(self.renderHints() | QPainter.RenderHint.Antialiasing)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setDragMode(self.DragMode.ScrollHandDrag)
 
-    # ---------------- IMAGE ----------------
+    # ---------- IMAGE ----------
     def set_image(self, cv_img):
         from utils import cv2_to_qpixmap
         self.scene.clear()
@@ -27,21 +27,21 @@ class ImageView(QGraphicsView):
         self.fit_image()
         self.undo_stack.clear()
         if self.tool_manager:
-            self.tool_manager._clear_preview()
+            self.tool_manager.reset()
 
     def fit_image(self):
         if self.pixmap_item:
             self.resetTransform()
             self.fitInView(self.pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
 
-    # ---------------- ZOOM ----------------
+    # ---------- ZOOM ----------
     def wheelEvent(self, event):
         if not self.pixmap_item:
             return
         factor = 1.15 if event.angleDelta().y() > 0 else 0.87
         self.scale(factor, factor)
 
-    # ---------------- EVENTS ----------------
+    # ---------- EVENTS ----------
     def mousePressEvent(self, event):
         if self.tool_manager:
             self.tool_manager.mousePressEvent(event)
@@ -62,7 +62,7 @@ class ImageView(QGraphicsView):
             self.tool_manager.keyPressEvent(event)
         super().keyPressEvent(event)
 
-    # ---------------- UNDO ----------------
+    # ---------- UNDO ----------
     def undo(self):
         if not self.undo_stack:
             return

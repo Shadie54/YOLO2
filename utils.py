@@ -1,4 +1,3 @@
-#utils.py
 from PyQt6.QtGui import QImage, QPixmap
 import cv2
 
