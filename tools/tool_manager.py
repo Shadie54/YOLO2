@@ -46,21 +46,22 @@ class ToolManager:
 
     # ---------- TOOL ----------
     def set_tool(self, tool_name):
-        # finish current pencil/eraser drawing
-        if getattr(self.view, "drawing", False) and self.current_tool in ["PENCIL", "ERASER"]:
-            if self.current_path_item:
-                self.view.undo_stack.append(self.current_path_item)
-                self.current_path_item = None
-            self.view.drawing = False
+        # dokončí prebiehajúci text tool, ak je aktívny
+        if hasattr(self, "current_tool_obj") and getattr(self.current_tool_obj, "editing", False):
+            self.current_tool_obj._finalize_text(self)
 
         self._clear_preview()
         self.current_tool = tool_name
         self.first_move_done = False
 
+        # získa instanciu aktuálneho nástroja
+        self.current_tool_obj = self.tools.get(tool_name) if tool_name else None
+
         if tool_name is None:
             self.view.setDragMode(self.view.DragMode.ScrollHandDrag)
         else:
             self.view.setDragMode(self.view.DragMode.NoDrag)
+
         self.log(f"[Tool] Tool set to {tool_name if tool_name else 'NONE'}")
 
     # ---------- RESET ----------
@@ -91,16 +92,13 @@ class ToolManager:
 
     # ---------- KEY EVENTS ----------
     def keyPressEvent(self, event):
-        print(f"Key pressed: {event.key()}, current tool: {self.current_tool}")
-
-        if self.current_tool == "TEXT":
-            tool = self.tools.get("TEXT")
-            if tool and hasattr(tool, "keyPress"):
-                tool.keyPress(self, event)
-            print("Text tool: shortcut ignored")
+        # ak je aktívny TextTool a práve sa píše, ignorujeme všetky skratky okrem ESC/ENTER
+        if getattr(self.current_tool_obj, "editing", False):
+            if hasattr(self.current_tool_obj, "keyPress"):
+                self.current_tool_obj.keyPress(self, event)
             return
 
-        # ostatné tooly
+        # inak normálne skratky
         if self.current_tool is None:
             return
         tool = self.tools.get(self.current_tool)

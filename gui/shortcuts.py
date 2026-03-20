@@ -1,4 +1,3 @@
-# shortcuts.py
 from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtCore import Qt
 
@@ -8,30 +7,22 @@ def register_shortcuts(main_window):
 
     main_window._shortcuts = []
 
-    def add(key, func, ignore_if_text_tool=False):
-        """ignore_if_text_tool=True → shortcut sa ignoruje len pri TEXT tool (okrem Enter/Escape)"""
+    def add(key, func):
         sc = QShortcut(QKeySequence(key), main_window)
         sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
-
-        def wrapped_func():
-            if tm.current_tool == "TEXT" and ignore_if_text_tool:
-                # Text tool spracuje všetky klávesy sám
-                return
-            func()
-
-        sc.activated.connect(wrapped_func)
+        sc.activated.connect(func)
         main_window._shortcuts.append(sc)
 
-    # ---------- Tools shortcuts ----------
-    # ignorujeme prepínanie nástrojov počas TEXT toolu
-    add("C", lambda: tm.set_tool("PENCIL"), ignore_if_text_tool=True)
-    add("X", lambda: tm.set_tool("ERASER"), ignore_if_text_tool=True)
-    add("L", lambda: tm.set_tool("LINE"), ignore_if_text_tool=True)
-    add("P", lambda: tm.set_tool("POLYLINE"), ignore_if_text_tool=True)
-    add("V", lambda: tm.set_tool("POLYCURVE"), ignore_if_text_tool=True)
-    add("Escape", lambda: tm.cancel_text_tool(), ignore_if_text_tool=False)   # zruši písanie textu
-    add("Enter", lambda: tm.complete_text_tool(), ignore_if_text_tool=False)   # potvrď text
+    # -------- Tools --------
+    add("C", lambda: (tm.set_tool("PENCIL"), main_window.update_tool_highlight("PENCIL")))
+    add("X", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight("ERASER")))
+    add("L", lambda: (tm.set_tool("LINE"), main_window.update_tool_highlight("LINE")))
+    add("P", lambda: (tm.set_tool("POLYLINE"), main_window.update_tool_highlight("POLYLINE")))
+    add("V", lambda: (tm.set_tool("POLYCURVE"), main_window.update_tool_highlight("POLYCURVE")))
+    add("T", lambda: (tm.set_tool("TEXT"), main_window.update_tool_highlight("TEXT")))
+    add("Escape", lambda: (tm.set_tool(None), main_window.update_tool_highlight(None)))
 
-    # ---------- Actions ----------
+    # -------- Actions --------
     add("Ctrl+Z", view.undo)
     add("Space", view.fit_image)
+    add("Ctrl+O", main_window.open_folder)

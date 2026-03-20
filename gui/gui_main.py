@@ -1,20 +1,18 @@
-# gui/gui_main.py
 import sys, os, cv2
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QToolBar, QFileDialog,
     QDockWidget, QPlainTextEdit, QLabel, QSlider, QWidget, QHBoxLayout
 )
 from PyQt6.QtGui import QIcon, QImage, QPainter, QAction, QActionGroup
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QPointF
 
 from gui.image_view import ImageView
 from gui.shortcuts import register_shortcuts
-from tools.tool_manager import ToolManager
+from tools import ToolManager
 from items.items import YoloBox
 
 def icon(path):
     return QIcon(path) if os.path.exists(path) else QIcon()
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -54,22 +52,21 @@ class MainWindow(QMainWindow):
         actions_tb.setFloatable(True)
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, actions_tb)
 
-        # Open Folder
         open_folder_act = QAction(icon(os.path.join(ICON_DIR, "open.png")), "Open Folder", self)
+        open_folder_act.setToolTip("Open Folder (Ctrl+O)")
         open_folder_act.triggered.connect(self.open_folder)
         actions_tb.addAction(open_folder_act)
 
-        # Settings placeholder
         settings_act = QAction(icon(os.path.join(ICON_DIR, "settings.png")), "Settings", self)
+        settings_act.setToolTip("Settings")
         settings_act.triggered.connect(lambda: self.log("Settings clicked"))
         actions_tb.addAction(settings_act)
 
-        # YOLO button
         self.yolo_auto = False
         yolo_icon_path = os.path.join(ICON_DIR, "yolo.png")
         yolo_auto_icon_path = os.path.join(ICON_DIR, "yolo_auto.png")
-
         yolo_act = QAction(icon(yolo_icon_path), "YOLO Detect", self)
+        yolo_act.setToolTip("YOLO Detect / Auto toggle")
         actions_tb.addAction(yolo_act)
 
         def toggle_yolo():
@@ -85,8 +82,8 @@ class MainWindow(QMainWindow):
 
         yolo_act.triggered.connect(toggle_yolo)
 
-        # Save
         save_act = QAction(icon(os.path.join(ICON_DIR, "save.png")), "Save", self)
+        save_act.setToolTip("Save annotated image")
         save_act.triggered.connect(self.save_image)
         actions_tb.addAction(save_act)
 
@@ -99,26 +96,44 @@ class MainWindow(QMainWindow):
 
         tool_group = QActionGroup(self)
         tool_group.setExclusive(True)
+        self.tool_actions = {}
 
-        def tool_btn(icon_name, label, tool_name=None, func=None):
+        def tool_btn(icon_name, label, tool_name=None, func=None, tooltip=None):
             act = QAction(icon(os.path.join(ICON_DIR, icon_name)), label, self)
             act.setCheckable(True)
+
             if func:
                 act.triggered.connect(func)
             elif tool_name:
-                act.triggered.connect(lambda: self.tool_manager.set_tool(tool_name))
+                def wrapper():
+                    self.tool_manager.set_tool(tool_name)
+                    for a in tool_group.actions():
+                        a.setChecked(a == act)
+
+                act.triggered.connect(wrapper)
             else:
                 act.triggered.connect(lambda: self.tool_manager.set_tool(None))
+
+            if tooltip:
+                act.setToolTip(tooltip)
+
             tool_group.addAction(act)
             draw_tb.addAction(act)
+            self.tool_actions[label] = act
             return act
 
-        tool_btn("mouse.png", "None", None)
-        tool_btn("pencil.png", "PENCIL", "PENCIL")
-        tool_btn("line.png", "LINE", "LINE")
-        tool_btn("polyline.png", "POLYLINE", "POLYLINE")
-        tool_btn("polycurve.png", "POLYCURVE", "POLYCURVE")
-        tool_btn("text.png", "TEXT", "TEXT")  # Text tool
+        tool_btn("mouse.png", "None", None, tooltip="Select/Move (None)")
+        tool_btn("pencil.png", "Pencil", "PENCIL", tooltip="Pencil (C)")
+        tool_btn("line.png", "Line", "LINE", tooltip="Line (L)")
+        tool_btn("polyline.png", "Polyline", "POLYLINE", tooltip="Polyline (P)")
+        tool_btn("polycurve.png", "Polycurve", "POLYCURVE", tooltip="Polycurve (V)")
+        tool_btn("text.png", "Text", "TEXT", tooltip="Text (T)")
+
+        # Undo na koniec toolbaru
+        undo_act = QAction(icon(os.path.join(ICON_DIR, "undo.png")), "Undo", self)
+        undo_act.setToolTip("Undo last action (Ctrl+Z)")
+        undo_act.triggered.connect(self.view.undo)
+        draw_tb.addAction(undo_act)
 
         tool_group.actions()[0].setChecked(True)
 
@@ -144,17 +159,7 @@ class MainWindow(QMainWindow):
         )
         self.brush_indicator.setVisible(False)
 
-        def show_brush_indicator(val):
-            self.tool_manager.brush_size = val
-            self.brush_indicator.setText(str(val))
-            self.brush_indicator.setVisible(True)
-
-        def hide_brush_indicator():
-            self.brush_indicator.setVisible(False)
-
-        self.brush_slider.valueChanged.connect(show_brush_indicator)
-        self.brush_slider.sliderReleased.connect(hide_brush_indicator)
-
+        self.brush_slider.valueChanged.connect(lambda val: self.brush_indicator.setText(str(val)))
         brush_layout.addWidget(self.brush_slider)
         brush_widget.setLayout(brush_layout)
         brush_tb.addWidget(brush_widget)
@@ -183,7 +188,6 @@ class MainWindow(QMainWindow):
         folder = QFileDialog.getExistingDirectory(self, "Open Folder", "")
         if not folder:
             return
-
         self.image_list = sorted(
             os.path.join(folder, f)
             for f in os.listdir(folder)
@@ -192,7 +196,6 @@ class MainWindow(QMainWindow):
         if not self.image_list:
             self.log("No images found in folder")
             return
-
         self.current_image_idx = 0
         self.show_current_image()
         self.log(f"Opened folder: {folder} ({len(self.image_list)} images)")
@@ -227,7 +230,6 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "image_list") or not self.image_list:
             self.log("No image to save")
             return
-
         path = self.image_list[self.current_image_idx]
         folder = os.path.dirname(path)
         base_folder = os.path.basename(folder)
@@ -241,8 +243,7 @@ class MainWindow(QMainWindow):
         self.view.scene.render(painter)
         painter.end()
 
-        base_name = os.path.basename(path)
-        save_path = os.path.join(save_folder, base_name)
+        save_path = os.path.join(save_folder, os.path.basename(path))
         image.save(save_path)
         self.log(f"Saved annotated image to {save_path}")
 
@@ -261,17 +262,24 @@ class MainWindow(QMainWindow):
         for det in detections:
             x1, y1, x2, y2 = det["bbox"]
             label = det["label"]
-
-            # Oprava volania YoloBoxu podľa aktuálneho items.py
             from PyQt6.QtCore import QRectF
             rect = QRectF(x1, y1, x2 - x1, y2 - y1)
-            box = YoloBox(rect, label)  # bez "label=label", ide ako druhý argument
+            box = YoloBox(rect, label)
             self.view.scene.addItem(box)
             self.view.undo_stack.append(box)
             count += 1
-
         self.log(f"YOLO: {count} detections")
 
+    def update_tool_highlight(self, tool_name):
+        """
+        Aktualizuje vizuálny stav toolbaru podľa aktuálneho nástroja.
+        tool_name môže byť None.
+        """
+        for name, act in self.tool_actions.items():
+            # ak name None, nahradíme "NONE"
+            name_key = name.upper() if name else "NONE"
+            tool_key = tool_name.upper() if tool_name else "NONE"
+            act.setChecked(name_key == tool_key)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
