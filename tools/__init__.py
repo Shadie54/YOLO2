@@ -9,6 +9,7 @@ from .eraser import EraserTool
 from .line import LineTool
 from .polyline import PolylineTool
 from .polycurve import PolycurveTool
+from .text import TextTool  # pridaný text tool
 
 # voliteľne: zoznam všetkých nástrojov
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "LineTool",
     "PolylineTool",
     "PolycurveTool",
+    "TextTool",  # doplnený do __all__
 ]

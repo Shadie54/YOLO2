@@ -29,12 +29,14 @@ class ToolManager:
         from .line import LineTool
         from .polyline import PolylineTool
         from .polycurve import PolycurveTool
+        from .text import TextTool
         return {
             "PENCIL": PencilTool(),
             "ERASER": EraserTool(),
             "LINE": LineTool(),
             "POLYLINE": PolylineTool(),
             "POLYCURVE": PolycurveTool(),
+            "TEXT": TextTool(),  # pridáme text tool
         }
 
     # ---------- LOG ----------
@@ -89,6 +91,16 @@ class ToolManager:
 
     # ---------- KEY EVENTS ----------
     def keyPressEvent(self, event):
+        print(f"Key pressed: {event.key()}, current tool: {self.current_tool}")
+
+        if self.current_tool == "TEXT":
+            tool = self.tools.get("TEXT")
+            if tool and hasattr(tool, "keyPress"):
+                tool.keyPress(self, event)
+            print("Text tool: shortcut ignored")
+            return
+
+        # ostatné tooly
         if self.current_tool is None:
             return
         tool = self.tools.get(self.current_tool)
@@ -131,3 +143,20 @@ class ToolManager:
         self.current_poly_points.clear()
         self.preview_lines.clear()
         self.view.setDragMode(self.view.DragMode.ScrollHandDrag)
+
+    def complete_text_tool(self):
+        """Potvrdiť písaný text a vykresliť ho do scény."""
+        if getattr(self, "text_edit_item", None):
+            # pridáme do undo
+            self.view.undo_stack.append(self.text_edit_item)
+            # odstránime edit widget
+            self.view.scene.removeItem(self.text_edit_item)
+            self.text_edit_item = None
+            self.set_tool(None)
+
+    def cancel_text_tool(self):
+        """Zrušiť písanie textu."""
+        if getattr(self, "text_edit_item", None):
+            self.view.scene.removeItem(self.text_edit_item)
+            self.text_edit_item = None
+            self.set_tool(None)
