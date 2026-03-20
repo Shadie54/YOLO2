@@ -1,23 +1,24 @@
-import sys
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QToolBar, QFileDialog,
-    QDockWidget, QPlainTextEdit, QLabel, QSlider, QWidget, QHBoxLayout
-)
+import sys, os, cv2
+from PyQt6.QtWidgets import QApplication, QMainWindow, QToolBar, QFileDialog, QDockWidget, QPlainTextEdit, QLabel, QSlider, QWidget, QHBoxLayout
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QRectF
 
-from image_view import ImageView
-from tools.tools import ToolManager
-from shortcuts import register_shortcuts
+from gui.image_view import ImageView
+from gui.shortcuts import register_shortcuts
+
+from tools.tool_manager import ToolManager
 from yolo.yolo_detector import YoloDetector
 from items.items import YoloBox
-from PyQt6.QtCore import QRectF
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YOLO2 experimental")
-        self.detector = YoloDetector("../models/best.pt")
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+
+        self.detector = YoloDetector(MODEL_PATH)
 
         # ---------- VIEW ----------
         self.view = ImageView()
@@ -59,7 +60,7 @@ class MainWindow(QMainWindow):
         # ---------- BRUSH SIZE ----------
         w = QWidget()
         l = QHBoxLayout()
-        l.setContentsMargins(2,2,2,2)
+        l.setContentsMargins(2, 2, 2, 2)
 
         l.addWidget(QLabel("Brush"))
         slider = QSlider(Qt.Orientation.Horizontal)
@@ -79,7 +80,6 @@ class MainWindow(QMainWindow):
         self.log(f"Brush size: {val}")
 
     def open_image(self):
-        import cv2
         path, _ = QFileDialog.getOpenFileName(self, "Open", "", "Images (*.png *.jpg *.jpeg)")
         if not path:
             return
@@ -91,18 +91,15 @@ class MainWindow(QMainWindow):
 
         # -------- YOLO DETEKCIA --------
         detections = self.detector.detect(img)
-
         count = 0
         for det in detections:
             x1, y1, x2, y2 = det["bbox"]
             label = det["label"]
 
             rect = QRectF(x1, y1, x2 - x1, y2 - y1)
-
             box = YoloBox(rect, label=label)
             self.view.scene.addItem(box)
             self.view.undo_stack.append(box)
-
             count += 1
 
         self.log(f"YOLO: {count} detections")

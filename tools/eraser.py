@@ -1,4 +1,3 @@
-# tools_eraser.py
 from items.items import YoloBox
 from PyQt6.QtWidgets import QGraphicsPathItem
 
@@ -15,8 +14,7 @@ class EraserTool:
                 tm.log("Item erased")
 
     def mouseMove(self, tm, event):
-        # môže ísť aj drag eraser, pre simplicity zatiaľ len click
-        self.mousePress(tm, event)
+        self.mousePress(tm, event)  # drag eraser
 
     def mouseRelease(self, tm, event):
         pass

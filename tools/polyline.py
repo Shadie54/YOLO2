@@ -1,8 +1,7 @@
-# tools_polyline.py
-from PyQt6.QtGui import QPen, QColor
+from PyQt6.QtGui import QPen, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsPathItem
 from items.items import BezierPoint
-from tools.tools_helpers import TempPoint
+from .tools_helpers import TempPoint
 
 class PolylineTool:
     """POLYLINE nástroj - jednoduché spojenie bodov do cesty"""
@@ -10,7 +9,6 @@ class PolylineTool:
     def mousePress(self, tm, event):
         view = tm.view
         scene_pos = view.mapToScene(event.position().toPoint())
-
         if not view.pixmap_item:
             return
 
@@ -24,15 +22,14 @@ class PolylineTool:
                 if tm.current_poly_points:
                     self.update_polyline(tm)
                 else:
-                    self._clear_preview(tm)
+                    self._clear_preview(tm, reset_drag=False)
             return
 
         if event.button() != Qt.MouseButton.LeftButton:
             return
 
         # nepridáva bod, ak už je BezierPoint na pozícii
-        items_at_pos = view.scene.items(scene_pos)
-        for item in items_at_pos:
+        for item in view.scene.items(scene_pos):
             if isinstance(item, BezierPoint):
                 return
 
@@ -43,34 +40,30 @@ class PolylineTool:
         self.update_polyline(tm)
 
     def mouseMove(self, tm, event):
-        view = tm.view
         if not tm.current_poly_points:
             return
-        scene_pos = view.mapToScene(event.position().toPoint())
+        scene_pos = tm.view.mapToScene(event.position().toPoint())
         temp_points = tm.current_poly_points + [TempPoint(scene_pos)]
         path = tm.create_standard_path(temp_points)
         self._update_preview(tm, path)
 
     def mouseRelease(self, tm, event):
-        pass  # body sa finalizujú až klávesom Enter
+        pass  # finalizácia Enterom
 
     def keyPress(self, tm, event):
         from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QGraphicsPathItem
-
         if event.key() in [Qt.Key.Key_Return, Qt.Key.Key_Enter]:
             if tm.current_poly_points:
                 path = tm.create_standard_path(tm.current_poly_points)
-                curve_item = QGraphicsPathItem(path)
-                curve_item.setPen(QPen(QColor(0,0,0),2))
-                tm.view.scene.addItem(curve_item)
-                tm.view.undo_stack.append(curve_item)
-            self._clear_preview(tm)
-
+                item = QGraphicsPathItem(path)
+                item.setPen(QPen(QColor(0,0,0), tm.brush_size))
+                tm.view.scene.addItem(item)
+                tm.view.undo_stack.append(item)
+            self._clear_preview(tm, reset_drag=False)
         elif event.key() == Qt.Key.Key_Escape:
-            self._clear_preview(tm)
+            self._clear_preview(tm, reset_drag=False)
 
-    # ---------------- HELPERS ----------------
+    # ---------- HELPERS ----------
     def update_polyline(self, tm):
         if not tm.current_poly_points:
             return
@@ -82,16 +75,17 @@ class PolylineTool:
             tm.view.scene.removeItem(line)
         tm.preview_lines.clear()
         preview = QGraphicsPathItem(path)
-        preview.setPen(QPen(QColor(0,0,0),2))
+        preview.setPen(QPen(QColor(0,0,0), tm.brush_size))
         preview.setZValue(1)
         tm.view.scene.addItem(preview)
         tm.preview_lines.append(preview)
 
-    def _clear_preview(self, tm):
-        for point in tm.current_poly_points:
-            tm.view.scene.removeItem(point)
+    def _clear_preview(self, tm, reset_drag=True):
+        for pt in tm.current_poly_points:
+            tm.view.scene.removeItem(pt)
         for line in tm.preview_lines:
             tm.view.scene.removeItem(line)
         tm.current_poly_points.clear()
         tm.preview_lines.clear()
-        tm.view.setDragMode(tm.view.DragMode.ScrollHandDrag)
+        if reset_drag:
+            tm.view.setDragMode(tm.view.DragMode.ScrollHandDrag)

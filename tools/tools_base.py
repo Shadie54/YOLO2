@@ -1,6 +1,4 @@
-# tools_base.py
 from abc import ABC, abstractmethod
-
 
 class BaseTool(ABC):
     """Abstraktný nástroj – každý konkrétny tool dedí odtiaľto"""
@@ -14,4 +12,4 @@ class BaseTool(ABC):
     @abstractmethod
     def mouseRelease(self, tm, event): pass
 
-    def keyPress(self, tm, event): pass  # optional, nemusí byť implementované
+    def keyPress(self, tm, event): pass  # optional
