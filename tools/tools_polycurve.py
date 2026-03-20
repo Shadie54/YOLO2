@@ -2,9 +2,9 @@
 from PyQt6.QtGui import QPen, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import QPointF
-from items import BezierPoint
+from items.items import BezierPoint
 import numpy as np
-from tools_helpers import TempPoint
+from tools.tools_helpers import TempPoint
 
 class PolycurveTool:
     """POLYCURVE nástroj - hladké krivky cez Bezier body"""

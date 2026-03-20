@@ -21,7 +21,7 @@ class ImageView(QGraphicsView):
 
     # ---------- IMAGE ----------
     def set_image(self, cv_img):
-        from utils import cv2_to_qpixmap
+        from utils.utils import cv2_to_qpixmap
         self.scene.clear()
         self.pixmap_item = self.scene.addPixmap(cv2_to_qpixmap(cv_img))
         self.fit_image()

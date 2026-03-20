@@ -7,17 +7,17 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 
 from image_view import ImageView
-from tools import ToolManager
+from tools.tools import ToolManager
 from shortcuts import register_shortcuts
-from yolo_detector import YoloDetector
-from items import YoloBox
+from yolo.yolo_detector import YoloDetector
+from items.items import YoloBox
 from PyQt6.QtCore import QRectF
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YOLO2 experimental")
-        self.detector = YoloDetector("best.pt")
+        self.detector = YoloDetector("../models/best.pt")
 
         # ---------- VIEW ----------
         self.view = ImageView()

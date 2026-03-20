@@ -1,8 +1,8 @@
 # tools_polyline.py
-from PyQt6.QtGui import QPen, QColor, QPainterPath
+from PyQt6.QtGui import QPen, QColor
 from PyQt6.QtWidgets import QGraphicsPathItem
-from items import BezierPoint
-from tools_helpers import TempPoint
+from items.items import BezierPoint
+from tools.tools_helpers import TempPoint
 
 class PolylineTool:
     """POLYLINE nástroj - jednoduché spojenie bodov do cesty"""

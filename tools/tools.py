@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt, QPointF
 from PyQt6.QtGui import QPen, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsPathItem
-from items import YoloBox, BezierPoint, TempPoint
+from items.items import BezierPoint, TempPoint
 import numpy as np
 
 class ToolManager:

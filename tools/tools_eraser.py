@@ -1,5 +1,5 @@
 # tools_eraser.py
-from items import YoloBox
+from items.items import YoloBox
 from PyQt6.QtWidgets import QGraphicsPathItem
 
 class EraserTool:
