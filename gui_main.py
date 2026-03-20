@@ -9,12 +9,15 @@ from PyQt6.QtCore import Qt
 from image_view import ImageView
 from tools import ToolManager
 from shortcuts import register_shortcuts
-
+from yolo_detector import YoloDetector
+from items import YoloBox
+from PyQt6.QtCore import QRectF
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YOLO2 experimental")
+        self.detector = YoloDetector("best.pt")
 
         # ---------- VIEW ----------
         self.view = ImageView()
@@ -85,6 +88,24 @@ class MainWindow(QMainWindow):
             self.log("Failed to load image")
             return
         self.view.set_image(img)
+
+        # -------- YOLO DETEKCIA --------
+        detections = self.detector.detect(img)
+
+        count = 0
+        for det in detections:
+            x1, y1, x2, y2 = det["bbox"]
+            label = det["label"]
+
+            rect = QRectF(x1, y1, x2 - x1, y2 - y1)
+
+            box = YoloBox(rect, label=label)
+            self.view.scene.addItem(box)
+            self.view.undo_stack.append(box)
+
+            count += 1
+
+        self.log(f"YOLO: {count} detections")
 
 
 if __name__ == "__main__":

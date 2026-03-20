@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Venv
+.venv/
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# PyInstaller / exe
+*.exe
+*.dll
+*.so
+*.pyd
+*.spec
+
+# PyQt / Qt
+*.qrc
+*.ui.py
+*.qmlc
+
+# IDE / Editor
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
