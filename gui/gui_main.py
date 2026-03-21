@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt, QSize, QPointF
 
 from gui.image_view import ImageView
 from gui.shortcuts import register_shortcuts
-from tools import ToolManager
+from tools.tool_manager import ToolManager
 from items.items import YoloBox
 
 def icon(path):
@@ -230,21 +230,33 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "image_list") or not self.image_list:
             self.log("No image to save")
             return
+
+        # cesta k aktuálnemu obrázku
         path = self.image_list[self.current_image_idx]
         folder = os.path.dirname(path)
         base_folder = os.path.basename(folder)
         save_folder = os.path.join(folder, base_folder)
         os.makedirs(save_folder, exist_ok=True)
 
+        # render scény do QImage
         img_rect = self.view.scene.sceneRect()
         image = QImage(int(img_rect.width()), int(img_rect.height()), QImage.Format.Format_ARGB32)
-        image.fill(Qt.GlobalColor.white)
+        image.fill(Qt.GlobalColor.white)  # biele pozadie
         painter = QPainter(image)
         self.view.scene.render(painter)
         painter.end()
 
+        # save path
         save_path = os.path.join(save_folder, os.path.basename(path))
-        image.save(save_path)
+        ext = os.path.splitext(save_path)[1].lower()
+
+        if ext == ".jpg":
+            # uložíme jpg s max kvalitou
+            image.save(save_path, "JPEG", quality=100)
+        else:
+            # iné formáty (napr. PNG) bez kvality
+            image.save(save_path)
+
         self.log(f"Saved annotated image to {save_path}")
 
     # ---------- YOLO Auto ----------

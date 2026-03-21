@@ -1,6 +1,6 @@
 from utils.utils import cv2_to_qpixmap
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene
-from PyQt6.QtGui import QPainter
+from PyQt6.QtGui import QPainter, QFont, QColor
 from PyQt6.QtCore import Qt
 
 class ImageView(QGraphicsView):
@@ -19,6 +19,9 @@ class ImageView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setDragMode(self.DragMode.ScrollHandDrag)
+
+        self.default_font = QFont("Arial", 16)
+        self.default_color = QColor("black")
 
     # ---------- IMAGE ----------
     def set_image(self, cv_img):

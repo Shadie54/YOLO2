@@ -20,7 +20,7 @@ class ToolManager:
         self.last_pos = None
         self.first_move_done = False
 
-        # --- tools instances (late import to avoid circular) ---
+        # --- tools instances ---
         self.tools = self._init_tools()
 
     def _init_tools(self):
@@ -29,14 +29,16 @@ class ToolManager:
         from .line import LineTool
         from .polyline import PolylineTool
         from .polycurve import PolycurveTool
-        from .text import TextTool
+        from .text import TextTool  # import až tu
+
+
         return {
             "PENCIL": PencilTool(),
             "ERASER": EraserTool(),
             "LINE": LineTool(),
             "POLYLINE": PolylineTool(),
             "POLYCURVE": PolycurveTool(),
-            "TEXT": TextTool(),  # pridáme text tool
+            "TEXT": TextTool(),
         }
 
     # ---------- LOG ----------
@@ -46,15 +48,20 @@ class ToolManager:
 
     # ---------- TOOL ----------
     def set_tool(self, tool_name):
-        # dokončí prebiehajúci text tool, ak je aktívny
+        """
+        Prepne aktívny nástroj. Ak je aktívny TextTool, dokončí alebo zruší text.
+        """
+        # --- dokončí alebo zruší TextTool, ak práve píše ---
         if hasattr(self, "current_tool_obj") and getattr(self.current_tool_obj, "editing", False):
-            self.current_tool_obj._finalize_text(self)
+            # môžeš zvoliť, či potvrdiť alebo zrušiť
+            self.current_tool_obj._finalize_text(self)  # potvrdiť text
+            # self.current_tool_obj._cancel_text(self)   # zrušiť text (alternatíva)
 
+        # --- nastav nový nástroj ---
         self._clear_preview()
         self.current_tool = tool_name
         self.first_move_done = False
 
-        # získa instanciu aktuálneho nástroja
         self.current_tool_obj = self.tools.get(tool_name) if tool_name else None
 
         if tool_name is None:
@@ -141,20 +148,3 @@ class ToolManager:
         self.current_poly_points.clear()
         self.preview_lines.clear()
         self.view.setDragMode(self.view.DragMode.ScrollHandDrag)
-
-    def complete_text_tool(self):
-        """Potvrdiť písaný text a vykresliť ho do scény."""
-        if getattr(self, "text_edit_item", None):
-            # pridáme do undo
-            self.view.undo_stack.append(self.text_edit_item)
-            # odstránime edit widget
-            self.view.scene.removeItem(self.text_edit_item)
-            self.text_edit_item = None
-            self.set_tool(None)
-
-    def cancel_text_tool(self):
-        """Zrušiť písanie textu."""
-        if getattr(self, "text_edit_item", None):
-            self.view.scene.removeItem(self.text_edit_item)
-            self.text_edit_item = None
-            self.set_tool(None)
