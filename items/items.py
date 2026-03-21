@@ -5,12 +5,18 @@ from PyQt6.QtCore import Qt
 import math
 
 class YoloBox(QGraphicsRectItem):
-    def __init__(self, rect, label="object"):
+    def __init__(self, rect, label):
         super().__init__(rect)
         self.label = label
-        self.setPen(QPen(QColor(255,0,0), 2))
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setBrush(QBrush(QColor(255, 255, 255, 0)))  # priesvitný
+        self.setPen(QColor(255,0,0))  # len okraj pre kontrolu
+        self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, True)
+
+    def mousePressEvent(self, event):
+        # klik = "vymazať" obsah boxu (biela výplň)
+        self.setBrush(QBrush(QColor(255, 255, 255)))  # biela
+        self.update()
+        super().mousePressEvent(event)
 
 class BezierPoint(QGraphicsEllipseItem):
     def __init__(self, x, y, parent_manager, radius=5):
