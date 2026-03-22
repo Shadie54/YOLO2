@@ -1,13 +1,9 @@
-# tools/tool_manager.py
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsPathItem
-from items.items import BezierPoint, YoloBox
-from .tools_helpers import TempPoint
-import numpy as np
+
 
 class ToolManager:
-    def __init__(self, view, log_callback=None):
+    def __init__(self, view, log_callback=None, antialiasing=True):
         self.view = view
         self.current_tool = None
         self.current_poly_points = []
@@ -20,6 +16,9 @@ class ToolManager:
         self.last_pos = None
         self.first_move_done = False
 
+        # --- AA ---
+        self.antialiasing = True  # default AA zapnuté
+
         # --- tools instances ---
         self.tools = self._init_tools()
 
@@ -29,8 +28,7 @@ class ToolManager:
         from .line import LineTool
         from .polyline import PolylineTool
         from .polycurve import PolycurveTool
-        from .text import TextTool  # import až tu
-
+        from .text import TextTool
 
         return {
             "PENCIL": PencilTool(),
@@ -48,20 +46,12 @@ class ToolManager:
 
     # ---------- TOOL ----------
     def set_tool(self, tool_name):
-        """
-        Prepne aktívny nástroj. Ak je aktívny TextTool, dokončí alebo zruší text.
-        """
-        # --- dokončí alebo zruší TextTool, ak práve píše ---
         if hasattr(self, "current_tool_obj") and getattr(self.current_tool_obj, "editing", False):
-            # môžeš zvoliť, či potvrdiť alebo zrušiť
-            self.current_tool_obj._finalize_text(self)  # potvrdiť text
-            # self.current_tool_obj._cancel_text(self)   # zrušiť text (alternatíva)
+            self.current_tool_obj._finalize_text(self)
 
-        # --- nastav nový nástroj ---
         self._clear_preview()
         self.current_tool = tool_name
         self.first_move_done = False
-
         self.current_tool_obj = self.tools.get(tool_name) if tool_name else None
 
         if tool_name is None:
@@ -99,13 +89,11 @@ class ToolManager:
 
     # ---------- KEY EVENTS ----------
     def keyPressEvent(self, event):
-        # ak je aktívny TextTool a práve sa píše, ignorujeme všetky skratky okrem ESC/ENTER
         if getattr(self.current_tool_obj, "editing", False):
             if hasattr(self.current_tool_obj, "keyPress"):
                 self.current_tool_obj.keyPress(self, event)
             return
 
-        # inak normálne skratky
         if self.current_tool is None:
             return
         tool = self.tools.get(self.current_tool)
@@ -128,15 +116,19 @@ class ToolManager:
 
     # ---------- PREVIEW ----------
     def _update_preview(self, path_or_item):
-        # remove old preview
+        # odstráni staré preview
         for line in self.preview_lines:
             self.view.scene.removeItem(line)
         self.preview_lines.clear()
 
-        # add new preview
+        # pridá nové preview
         item = QGraphicsPathItem(path_or_item) if not isinstance(path_or_item, QGraphicsPathItem) else path_or_item
         if not isinstance(path_or_item, QGraphicsPathItem):
-            item.setPen(QPen(QColor(0,0,0), self.brush_size))
+            pen = QPen(QColor(0,0,0), self.brush_size)
+            # renderovanie AA podľa nastavení
+            if self.antialiasing:
+                pen.setCosmetic(False)  # nech škáluje s zoomom a použije AA
+            item.setPen(pen)
         self.view.scene.addItem(item)
         self.preview_lines.append(item)
 
@@ -148,3 +140,7 @@ class ToolManager:
         self.current_poly_points.clear()
         self.preview_lines.clear()
         self.view.setDragMode(self.view.DragMode.ScrollHandDrag)
+
+    def set_antialiasing(self, value: bool):
+        self.antialiasing = value
+        print(f"[DEBUG] TM AA = {self.antialiasing}")

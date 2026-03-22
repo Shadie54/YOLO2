@@ -10,7 +10,7 @@ from gui.image_view import ImageView
 from gui.shortcuts import register_shortcuts
 from tools.tool_manager import ToolManager
 from items.items import YoloBox
-
+from utils.settings import SettingsDialog
 from utils.error_handler import excepthook
 sys.excepthook = excepthook  # <<< tu ho nastavíš, pred MainWindow
 
@@ -25,6 +25,13 @@ class MainWindow(QMainWindow):
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ICON_DIR = os.path.join(BASE_DIR, "assets", "icons")
         MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+
+        # ---------- Default settings ----------
+        self.settings = {
+            "overwrite_original": False,
+            "custom_folder": "",
+            "antialiasing": True,
+        }
 
         # ---------- YOLO Detector ----------
         from yolo.yolo_detector import YoloDetector
@@ -81,6 +88,7 @@ class MainWindow(QMainWindow):
         # --- Settings ---
         settings_act = QAction(icon(os.path.join(ICON_DIR, "settings.png")), "Settings", self)
         settings_act.setToolTip("Settings")
+        settings_act.triggered.connect(self.open_settings)
         settings_act.triggered.connect(lambda: self.log("Settings clicked"))
         actions_tb.addAction(settings_act)
 
@@ -323,10 +331,24 @@ class MainWindow(QMainWindow):
 
         path = self.image_list[self.current_image_idx]
         folder = os.path.dirname(path)
-        base_folder = os.path.basename(folder)
-        save_folder = os.path.join(folder, base_folder)
-        os.makedirs(save_folder, exist_ok=True)
 
+        if self.settings.save_mode == "overwrite":
+            save_folder = folder
+        elif self.settings.save_mode == "subfolder":
+            base_folder = os.path.basename(folder)
+            save_folder = os.path.join(folder, base_folder)
+            os.makedirs(save_folder, exist_ok=True)
+        elif self.settings.save_mode == "custom":
+            save_folder = self.settings.custom_folder
+            os.makedirs(save_folder, exist_ok=True)
+        else:
+            self.log("Neznámy režim ukladania, použitie podsložky")
+            save_folder = os.path.join(folder, "annotated")
+            os.makedirs(save_folder, exist_ok=True)
+
+        save_path = os.path.join(save_folder, os.path.basename(path))
+
+        # --- renderovanie obrázku ---
         img_rect = self.view.scene.sceneRect()
         image = QImage(int(img_rect.width()), int(img_rect.height()), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.white)
@@ -334,13 +356,13 @@ class MainWindow(QMainWindow):
         self.view.scene.render(painter)
         painter.end()
 
-        save_path = os.path.join(save_folder, os.path.basename(path))
+        # --- uloženie ---
         ext = os.path.splitext(save_path)[1].lower()
         if ext in [".jpg", ".jpeg"]:
             image.save(save_path, "JPEG", quality=100)
         else:
             image.save(save_path)
-        self.log(f"Saved annotated image to {save_path}")
+        self.log(f"Uložené do: {save_path}")
 
     # ============================
     # YOLO Detection
@@ -409,6 +431,12 @@ class MainWindow(QMainWindow):
                 act.setChecked(True)
             elif act.text() != "None":
                 act.setChecked(False)
+
+    def open_settings(self):
+        dlg = SettingsDialog(self, settings=self.settings, tool_manager=self.tool_manager)
+        if dlg.exec():
+            self.settings = dlg.get_settings()
+            self.log(f"Settings updated: {self.settings}")
 
 if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
