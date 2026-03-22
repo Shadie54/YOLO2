@@ -20,6 +20,7 @@ def register_shortcuts(main_window):
     add("P", lambda: (tm.set_tool("POLYLINE"), main_window.update_tool_highlight("POLYLINE")))
     add("V", lambda: (tm.set_tool("POLYCURVE"), main_window.update_tool_highlight("POLYCURVE")))
     add("T", lambda: (tm.set_tool("TEXT"), main_window.update_tool_highlight("TEXT")))
+    add("E", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight("ERASER")))
     add("Escape", lambda: (tm.set_tool(None), main_window.update_tool_highlight(None)))
 
     # -------- Actions --------

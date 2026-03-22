@@ -1,4 +1,4 @@
-import sys, os, cv2
+import sys, os, cv2, traceback
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QToolBar, QFileDialog,
     QDockWidget, QPlainTextEdit, QLabel, QSlider, QWidget,
@@ -6,11 +6,13 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QIcon, QImage, QPainter, QAction, QActionGroup, QFont
 from PyQt6.QtCore import Qt, QSize, QRectF
-
 from gui.image_view import ImageView
 from gui.shortcuts import register_shortcuts
 from tools.tool_manager import ToolManager
 from items.items import YoloBox
+
+from utils.error_handler import excepthook
+sys.excepthook = excepthook  # <<< tu ho nastavíš, pred MainWindow
 
 def icon(path):
     return QIcon(path) if os.path.exists(path) else QIcon()
@@ -19,7 +21,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YOLO2 experimental")
-
         # ---------- Directories ----------
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ICON_DIR = os.path.join(BASE_DIR, "assets", "icons")
@@ -147,6 +148,7 @@ class MainWindow(QMainWindow):
         tool_btn("line.png", "Line", "LINE", tooltip="Line (L)")
         tool_btn("polyline.png", "Polyline", "POLYLINE", tooltip="Polyline (P)")
         tool_btn("polycurve.png", "Polycurve", "POLYCURVE", tooltip="Polycurve (V)")
+        tool_btn("eraser.png", "Eraser", "ERASER", tooltip="Guma (E)")
         tool_btn("text.png", "Text", "TEXT", tooltip="Text (T)")
 
         # --- Undo ---
@@ -168,6 +170,7 @@ class MainWindow(QMainWindow):
         # ak je toolbar vertikálny, použijeme vertical layout
         if brush_tb.orientation() == Qt.Orientation.Vertical:
             brush_layout = QVBoxLayout()
+            brush_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
 
         brush_layout.setContentsMargins(2, 2, 2, 2)
 
@@ -365,7 +368,7 @@ class MainWindow(QMainWindow):
                 x2 = x1 + new_width
 
             rect = QRectF(x1, y1, x2 - x1, y2 - y1)
-            box = YoloBox(rect, label)
+            box = YoloBox(rect, label, self.view.scene)
             self.view.scene.addItem(box)
             self.view.undo_stack.append(box)
             count += 1
@@ -408,6 +411,9 @@ class MainWindow(QMainWindow):
                 act.setChecked(False)
 
 if __name__ == "__main__":
+    from PyQt6.QtWidgets import QApplication
+    from gui.gui_main import MainWindow
+
     app = QApplication(sys.argv)
     w = MainWindow()
     w.resize(1300, 900)

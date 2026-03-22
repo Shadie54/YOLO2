@@ -1,20 +1,39 @@
-from items.items import YoloBox
+# eraser.py
+from PyQt6.QtGui import QPen, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsPathItem
 
+
 class EraserTool:
+    """Eraser = bielidlo, funguje rovnako ako PencilTool, len kreslí bielou farbou"""
+
     def mousePress(self, tm, event):
         view = tm.view
         scene_pos = view.mapToScene(event.position().toPoint())
-        items = view.scene.items(scene_pos)
-        for item in items:
-            if isinstance(item, (YoloBox, QGraphicsPathItem)):
-                if item in view.undo_stack:
-                    view.undo_stack.remove(item)
-                view.scene.removeItem(item)
-                tm.log("Item erased")
+        view.drawing = True
+        path = QPainterPath()
+        path.moveTo(scene_pos)
+        tm.current_path_item = QGraphicsPathItem(path)
+        # Biely štetec, šírka podľa tm.brush_size
+        tm.current_path_item.setPen(QPen(QColor(255, 255, 255), tm.brush_size))
+        view.scene.addItem(tm.current_path_item)
+        tm.last_pos = scene_pos
+        tm.first_move_done = False
 
     def mouseMove(self, tm, event):
-        self.mousePress(tm, event)  # drag eraser
+        if not getattr(tm.view, "drawing", False) or not tm.current_path_item:
+            return
+        scene_pos = tm.view.mapToScene(event.position().toPoint())
+        path = tm.current_path_item.path()
+        path.moveTo(tm.last_pos)
+        path.lineTo(scene_pos)
+        tm.current_path_item.setPath(path)
+        tm.last_pos = scene_pos
 
     def mouseRelease(self, tm, event):
+        if tm.current_path_item:
+            tm.view.undo_stack.append(tm.current_path_item)
+            tm.current_path_item = None
+        tm.view.drawing = False
+
+    def keyPress(self, tm, event):
         pass

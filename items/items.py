@@ -1,23 +1,54 @@
 # items/items.py
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsItem
-from PyQt6.QtGui import QPen, QBrush, QColor, QFont
+from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QCursor
 from PyQt6.QtCore import Qt
 import math
 
+from PyQt6.QtWidgets import QGraphicsRectItem
+from PyQt6.QtGui import QPen, QColor, QBrush, QCursor
+from PyQt6.QtCore import Qt
+
 class YoloBox(QGraphicsRectItem):
-    def __init__(self, rect, label):
+    def __init__(self, rect, label, scene):
         super().__init__(rect)
         self.label = label
-        self.setBrush(QBrush(QColor(255, 255, 255, 0)))  # priesvitný
-        self.setPen(QColor(255,0,0))  # len okraj pre kontrolu
-        self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.scene_ref = scene
+
+        # 🔴 červený rámček
+        self.setPen(QPen(QColor(255, 0, 0), 2))
+        self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+
+        # hover + kurzor
+        self.setAcceptHoverEvents(True)
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setToolTip(f"Klikni pre odstránenie: {label}")
+
+    # 🟡 hover efekt
+    def hoverEnterEvent(self, event):
+        self.setPen(QPen(QColor(255, 255, 0), 2))
+        self.setBrush(QBrush(QColor(255, 255, 255, 40)))
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        self.setPen(QPen(QColor(255, 0, 0), 2))
+        self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        super().hoverLeaveEvent(event)
 
     def mousePressEvent(self, event):
-        # klik = "vymazať" obsah boxu (biela výplň)
-        self.setBrush(QBrush(QColor(255, 255, 255)))  # biela
-        self.update()
-        super().mousePressEvent(event)
+        rect = self.rect()
 
+        # 🟡 offset 1px, aby nezostali kúsky červeného okraja
+        offset = 1
+        white_rect = QGraphicsRectItem(
+            rect.adjusted(-offset, -offset, offset, offset)
+        )
+        white_rect.setPen(QPen(Qt.PenStyle.NoPen))
+        white_rect.setBrush(QBrush(QColor(255, 255, 255)))
+
+        self.scene_ref.addItem(white_rect)
+        self.scene_ref.removeItem(self)
+
+        super().mousePressEvent(event)
 class BezierPoint(QGraphicsEllipseItem):
     def __init__(self, x, y, parent_manager, radius=5):
         super().__init__(-radius, -radius, radius*2, radius*2)
