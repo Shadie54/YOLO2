@@ -1,5 +1,6 @@
+# tools/polyline.py
 from PyQt6.QtGui import QPen, QColor, QPainterPath
-from PyQt6.QtWidgets import QGraphicsPathItem
+from items.aa_path_item import AAPathItem
 from items.items import BezierPoint
 from .tools_helpers import TempPoint
 
@@ -55,7 +56,7 @@ class PolylineTool:
         if event.key() in [Qt.Key.Key_Return, Qt.Key.Key_Enter]:
             if tm.current_poly_points:
                 path = tm.create_standard_path(tm.current_poly_points)
-                item = QGraphicsPathItem(path)
+                item = AAPathItem(path, use_aa=tm.antialiasing)
                 item.setPen(QPen(QColor(0,0,0), tm.brush_size))
                 tm.view.scene.addItem(item)
                 tm.view.undo_stack.append(item)
@@ -74,7 +75,7 @@ class PolylineTool:
         for line in tm.preview_lines:
             tm.view.scene.removeItem(line)
         tm.preview_lines.clear()
-        preview = QGraphicsPathItem(path)
+        preview = AAPathItem(path, use_aa=tm.antialiasing)
         preview.setPen(QPen(QColor(0,0,0), tm.brush_size))
         preview.setZValue(1)
         tm.view.scene.addItem(preview)

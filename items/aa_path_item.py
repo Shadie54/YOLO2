@@ -12,7 +12,6 @@ class AAPathItem(QGraphicsPathItem):
         self.update()
 
     def paint(self, painter, option, widget=None):
-        print(f"[DEBUG] PAINT AA = {self.use_aa}")
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, self.use_aa)
         super().paint(painter, option, widget)

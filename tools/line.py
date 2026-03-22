@@ -41,7 +41,6 @@ class LineTool:
         path.lineTo(self.points[1].pos())
 
         # dynamicky berieme AA z ToolManager
-        print(f"[DEBUG] Creating line AA = {tm.antialiasing}")
         line_item = AAPathItem(path, use_aa=tm.antialiasing)
         line_item.setPen(QPen(QColor(0, 0, 0), tm.brush_size))
         tm.view.scene.addItem(line_item)
@@ -56,7 +55,6 @@ class LineTool:
         self.points = []
 
     def _update_preview(self, tm, path):
-        print(f"[DEBUG] Line preview AA = {tm.antialiasing}")
         for line in tm.preview_lines:
             tm.view.scene.removeItem(line)
         tm.preview_lines.clear()

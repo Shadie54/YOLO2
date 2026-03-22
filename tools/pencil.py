@@ -1,5 +1,6 @@
+# tools/pencil.py
 from PyQt6.QtGui import QPen, QColor, QPainterPath
-from PyQt6.QtWidgets import QGraphicsPathItem
+from items.aa_path_item import AAPathItem
 from .tools_base import BaseTool
 
 class PencilTool:
@@ -7,11 +8,14 @@ class PencilTool:
         view = tm.view
         scene_pos = view.mapToScene(event.position().toPoint())
         tm.view.drawing = True
+
+        # 🖌 AA podľa nastavenia v ToolManager
         path = QPainterPath()
         path.moveTo(scene_pos)
-        tm.current_path_item = QGraphicsPathItem(path)
+        tm.current_path_item = AAPathItem(path, use_aa=tm.antialiasing)
         tm.current_path_item.setPen(QPen(QColor(0,0,0), tm.brush_size))
         view.scene.addItem(tm.current_path_item)
+
         tm.last_pos = scene_pos
         tm.first_move_done = False
 

@@ -143,4 +143,3 @@ class ToolManager:
 
     def set_antialiasing(self, value: bool):
         self.antialiasing = value
-        print(f"[DEBUG] TM AA = {self.antialiasing}")

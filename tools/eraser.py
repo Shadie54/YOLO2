@@ -1,7 +1,6 @@
-# eraser.py
+# tools/eraser.py
 from PyQt6.QtGui import QPen, QColor, QPainterPath
-from PyQt6.QtWidgets import QGraphicsPathItem
-
+from items.aa_path_item import AAPathItem
 
 class EraserTool:
     """Eraser = bielidlo, funguje rovnako ako PencilTool, len kreslí bielou farbou"""
@@ -10,12 +9,15 @@ class EraserTool:
         view = tm.view
         scene_pos = view.mapToScene(event.position().toPoint())
         view.drawing = True
+
         path = QPainterPath()
         path.moveTo(scene_pos)
-        tm.current_path_item = QGraphicsPathItem(path)
-        # Biely štetec, šírka podľa tm.brush_size
+        # 🖌 Použitie AA z ToolManager
+        tm.current_path_item = AAPathItem(path, use_aa=tm.antialiasing)
+        # Biely štetec
         tm.current_path_item.setPen(QPen(QColor(255, 255, 255), tm.brush_size))
         view.scene.addItem(tm.current_path_item)
+
         tm.last_pos = scene_pos
         tm.first_move_done = False
 
