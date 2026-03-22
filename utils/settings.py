@@ -10,7 +10,6 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
 
         self.tool_manager = tool_manager
-        print(f"[DEBUG] SettingsDialog tool_manager = {self.tool_manager}")
         self.settings = settings or {}
 
         self.setWindowTitle("Nastavenia")
@@ -25,8 +24,13 @@ class SettingsDialog(QDialog):
 
         self.save_group = QButtonGroup(self)
         self.save_origin_rb = QRadioButton("Prepísať originálny obrázok")
-        self.save_subfolder_rb = QRadioButton("Uložiť do rovnakej zložky (default)")
+        self.save_origin_rb.setToolTip("Prepíše originálny obrázok s aktuálnymi úpravami")
+        self.save_subfolder_rb = QRadioButton("Uložiť do podzložky (default)")
+        self.save_subfolder_rb.setToolTip("Uloží obrázok do podsložky s rovnakým názvom, "
+                                          "napr: <br> Ak máme : <b>folder/image1.jpg</b> <br>"
+                                          "uloží sa do: <b>folder/folder/image1.jpg</b>")
         self.save_custom_rb = QRadioButton("Vybrať vlastnú zložku")
+        self.save_custom_rb.setToolTip("Uloží obrázok do zložky podľa valstného výberu")
         self.save_group.addButton(self.save_origin_rb)
         self.save_group.addButton(self.save_subfolder_rb)
         self.save_group.addButton(self.save_custom_rb)

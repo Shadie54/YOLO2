@@ -1,8 +1,10 @@
-import sys, os, cv2, traceback
+import sys, os, cv2
+import numpy as np
+from pathlib import Path
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QToolBar, QFileDialog,
+    QMainWindow, QToolBar, QFileDialog,
     QDockWidget, QPlainTextEdit, QLabel, QSlider, QWidget,
-    QHBoxLayout,QVBoxLayout, QFontComboBox, QSpinBox, QPushButton
+    QBoxLayout, QHBoxLayout, QFontComboBox, QSpinBox, QPushButton
 )
 from PyQt6.QtGui import QIcon, QImage, QPainter, QAction, QActionGroup, QFont
 from PyQt6.QtCore import Qt, QSize, QRectF
@@ -15,16 +17,27 @@ from utils.error_handler import excepthook
 sys.excepthook = excepthook  # <<< tu ho nastavíš, pred MainWindow
 
 def icon(path):
+    path = str(path)
     return QIcon(path) if os.path.exists(path) else QIcon()
+
+def load_image_unicode(path):
+    try:
+        with open(path, "rb") as f:
+            bytes_array = bytearray(f.read())
+        img_np = np.asarray(bytes_array, dtype=np.uint8)
+        return cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+    except Exception as e:
+        print(f"Failed to load image {path}: {e}")
+        return None
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YOLO2 experimental")
         # ---------- Directories ----------
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ICON_DIR = os.path.join(BASE_DIR, "assets", "icons")
-        MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+        BASE_DIR = Path(__file__).resolve().parent.parent
+        ICON_DIR = BASE_DIR / "assets" / "icons"
+        MODEL_PATH = BASE_DIR / "models" / "best.pt"
 
         # ---------- Default settings ----------
         self.settings = {
@@ -35,7 +48,7 @@ class MainWindow(QMainWindow):
 
         # ---------- YOLO Detector ----------
         from yolo.yolo_detector import YoloDetector
-        self.detector = YoloDetector(MODEL_PATH)
+        self.detector = YoloDetector(str(MODEL_PATH))  # <-- string, aby PyTorch/YOLO čítal Unicode cesty
 
         # ---------- Central View ----------
         self.view = ImageView()
@@ -80,13 +93,13 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, actions_tb)
 
         # --- Open Folder ---
-        open_folder_act = QAction(icon(os.path.join(ICON_DIR, "open.png")), "Open Folder", self)
+        open_folder_act = QAction(icon(str(ICON_DIR / "open.png")), "Open Folder", self)
         open_folder_act.setToolTip("Open Folder (Ctrl+O)")
         open_folder_act.triggered.connect(self.open_folder)
         actions_tb.addAction(open_folder_act)
 
         # --- Settings ---
-        settings_act = QAction(icon(os.path.join(ICON_DIR, "settings.png")), "Settings", self)
+        settings_act = QAction(icon(str(ICON_DIR / "settings.png")), "Settings", self)
         settings_act.setToolTip("Settings")
         settings_act.triggered.connect(self.open_settings)
         settings_act.triggered.connect(lambda: self.log("Settings clicked"))
@@ -94,8 +107,8 @@ class MainWindow(QMainWindow):
 
         # --- YOLO ---
         self.yolo_auto = False
-        yolo_icon_path = os.path.join(ICON_DIR, "yolo.png")
-        yolo_auto_icon_path = os.path.join(ICON_DIR, "yolo_auto.png")
+        yolo_icon_path = ICON_DIR / "yolo.png"
+        yolo_auto_icon_path = ICON_DIR / "yolo_auto.png"
         yolo_act = QAction(icon(yolo_icon_path), "YOLO Detect", self)
         yolo_act.setToolTip("YOLO Detect / Auto toggle")
         actions_tb.addAction(yolo_act)
@@ -113,7 +126,7 @@ class MainWindow(QMainWindow):
         yolo_act.triggered.connect(toggle_yolo)
 
         # --- Save ---
-        save_act = QAction(icon(os.path.join(ICON_DIR, "save.png")), "Save", self)
+        save_act = QAction(icon(str(ICON_DIR / "save.png")), "Save", self)
         save_act.setToolTip("Save annotated image")
         save_act.triggered.connect(self.save_image)
         actions_tb.addAction(save_act)
@@ -130,7 +143,7 @@ class MainWindow(QMainWindow):
         tool_group.setExclusive(True)
 
         def tool_btn(icon_name, label, tool_name=None, func=None, tooltip=None):
-            act = QAction(icon(os.path.join(ICON_DIR, icon_name)), label, self)
+            act = QAction(icon(str(ICON_DIR / icon_name)), label, self)
             act.setCheckable(True)
             if func:
                 act.triggered.connect(func)
@@ -160,32 +173,27 @@ class MainWindow(QMainWindow):
         tool_btn("text.png", "Text", "TEXT", tooltip="Text (T)")
 
         # --- Undo ---
-        undo_act = QAction(icon(os.path.join(ICON_DIR, "undo.png")), "Undo", self)
+        undo_act = QAction(icon(str(ICON_DIR / "undo.png")), "Undo", self)
         undo_act.setToolTip("Undo last action (Ctrl+Z)")
         undo_act.triggered.connect(self.view.undo)
         draw_tb.addAction(undo_act)
 
     def init_brush_toolbar(self, ICON_SIZE):
-        brush_tb = QToolBar("Brush")
-        brush_tb.setIconSize(ICON_SIZE)
-        brush_tb.setMovable(True)
-        brush_tb.setFloatable(True)
-        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, brush_tb)
+        self.brush_tb = QToolBar("Brush")
+        self.brush_tb.setIconSize(ICON_SIZE)
+        self.brush_tb.setMovable(True)
+        self.brush_tb.setFloatable(True)
+        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self.brush_tb)
 
-        brush_widget = QWidget()
-        brush_layout = QHBoxLayout()  # default horizontal
+        self.brush_widget = QWidget()
+        # inicializujeme layout podľa orientácie toolbaru
+        direction = QBoxLayout.Direction.TopToBottom if self.brush_tb.orientation() == Qt.Orientation.Vertical else QBoxLayout.Direction.LeftToRight
+        self.brush_layout = QBoxLayout(direction)
+        self.brush_layout.setContentsMargins(2, 2, 2, 2)
+        self.brush_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
 
-        # ak je toolbar vertikálny, použijeme vertical layout
-        if brush_tb.orientation() == Qt.Orientation.Vertical:
-            brush_layout = QVBoxLayout()
-            brush_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-
-        brush_layout.setContentsMargins(2, 2, 2, 2)
-
-        self.brush_slider = QSlider(Qt.Orientation.Horizontal)
-        if brush_tb.orientation() == Qt.Orientation.Vertical:
-            self.brush_slider.setOrientation(Qt.Orientation.Vertical)
-
+        self.brush_slider = QSlider(
+            Qt.Orientation.Vertical if self.brush_tb.orientation() == Qt.Orientation.Vertical else Qt.Orientation.Horizontal)
         self.brush_slider.setMinimum(1)
         self.brush_slider.setMaximum(20)
         self.brush_slider.setValue(self.tool_manager.brush_size)
@@ -194,13 +202,24 @@ class MainWindow(QMainWindow):
         self.brush_indicator.setStyleSheet(
             "background-color: rgba(0,0,0,180); color: white; font-weight: bold; padding: 2px; border-radius: 4px;"
         )
-        self.brush_indicator.setVisible(True)
+
         self.brush_slider.valueChanged.connect(self._on_brush_changed)
 
-        brush_layout.addWidget(self.brush_slider)
-        brush_layout.addWidget(self.brush_indicator)
-        brush_widget.setLayout(brush_layout)
-        brush_tb.addWidget(brush_widget)
+        self.brush_layout.addWidget(self.brush_slider)
+        self.brush_layout.addWidget(self.brush_indicator)
+        self.brush_widget.setLayout(self.brush_layout)
+        self.brush_tb.addWidget(self.brush_widget)
+
+        # reaguj na zmenu orientácie toolbaru
+        self.brush_tb.orientationChanged.connect(self._on_toolbar_orientation_changed)
+
+    def _on_toolbar_orientation_changed(self, orientation):
+        if orientation == Qt.Orientation.Vertical:
+            self.brush_slider.setOrientation(Qt.Orientation.Vertical)
+            self.brush_layout.setDirection(QBoxLayout.Direction.TopToBottom)
+        else:
+            self.brush_slider.setOrientation(Qt.Orientation.Horizontal)
+            self.brush_layout.setDirection(QBoxLayout.Direction.LeftToRight)
 
     def init_navigation_toolbar(self, ICON_DIR, ICON_SIZE):
         nav_tb = QToolBar("Navigation")
@@ -209,13 +228,28 @@ class MainWindow(QMainWindow):
         nav_tb.setFloatable(True)
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, nav_tb)
 
+        # label počítadla
         self.nav_label = QLabel("0/0")
-        prev_act = QAction(icon(os.path.join(ICON_DIR, "left.png")), "Previous", self)
-        next_act = QAction(icon(os.path.join(ICON_DIR, "right.png")), "Next", self)
+        self.nav_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.nav_label.setMinimumWidth(50)  # fix šírky, aby bolo pekne centrálné
+
+        # akcia šípok
+        prev_act = QAction(icon(str(ICON_DIR / "left.png")), "Previous", self)
+        next_act = QAction(icon(str(ICON_DIR / "right.png")), "Next", self)
         prev_act.triggered.connect(self.go_previous_image)
         next_act.triggered.connect(self.go_next_image)
+
+        # widget pre label + layout (aby bolo centrálné)
+        label_widget = QWidget()
+        label_layout = QHBoxLayout()  # horizontalne
+        label_layout.setContentsMargins(0, 0, 0, 0)
+        label_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_layout.addWidget(self.nav_label)
+        label_widget.setLayout(label_layout)
+
+        # pridanie do toolbara
         nav_tb.addAction(prev_act)
-        nav_tb.addWidget(self.nav_label)
+        nav_tb.addWidget(label_widget)
         nav_tb.addAction(next_act)
 
     # ============================
@@ -286,28 +320,40 @@ class MainWindow(QMainWindow):
         folder = QFileDialog.getExistingDirectory(self, "Open Folder", "")
         if not folder:
             return
+
+        folder_path = Path(folder)
         self.image_list = sorted(
-            os.path.join(folder, f)
-            for f in os.listdir(folder)
-            if f.lower().endswith((".png", ".jpg", ".jpeg"))
+            [str(f) for f in folder_path.iterdir() if f.suffix.lower() in {".png", ".jpg", ".jpeg"}]
         )
+
         if not self.image_list:
             self.log("No images found in folder")
             return
+
         self.current_image_idx = 0
         self.show_current_image()
         self.log(f"Opened folder: {folder} ({len(self.image_list)} images)")
 
     def show_current_image(self):
+
+        if self.tool_manager.current_tool_obj:
+            self.tool_manager.set_tool(None)  # deaktivuje akýkoľvek aktívny nástroj
+            self.update_tool_highlight()
+        self.view.scene.clear()  # teraz bezpečne vymažeme
+
         if not hasattr(self, "image_list") or not self.image_list:
             return
+
         path = self.image_list[self.current_image_idx]
-        img = cv2.imread(path)
+        img = load_image_unicode(path)
+
         if img is None:
             self.log(f"Failed to load image: {path}")
             return
+
         self.view.set_image(img)
-        self.nav_label.setText(f"{self.current_image_idx+1}/{len(self.image_list)}")
+        self.nav_label.setText(f"{self.current_image_idx + 1}/{len(self.image_list)}")
+
         if self.yolo_auto:
             self.run_yolo_on_current_image()
 
@@ -329,24 +375,25 @@ class MainWindow(QMainWindow):
             self.log("No image to save")
             return
 
-        path = self.image_list[self.current_image_idx]
-        folder = os.path.dirname(path)
+        path = Path(self.image_list[self.current_image_idx])
+        folder = path.parent
 
-        if self.settings.save_mode == "overwrite":
+        save_mode = self.settings.get("save_mode", "subfolder")
+
+        if save_mode == "origin":
             save_folder = folder
-        elif self.settings.save_mode == "subfolder":
-            base_folder = os.path.basename(folder)
-            save_folder = os.path.join(folder, base_folder)
-            os.makedirs(save_folder, exist_ok=True)
-        elif self.settings.save_mode == "custom":
-            save_folder = self.settings.custom_folder
-            os.makedirs(save_folder, exist_ok=True)
+        elif save_mode == "subfolder":
+            save_folder = folder / folder.name
+            save_folder.mkdir(exist_ok=True)
+        elif save_mode == "custom":
+            save_folder = Path(self.settings.get("custom_folder", folder))
+            save_folder.mkdir(exist_ok=True)
         else:
             self.log("Neznámy režim ukladania, použitie podsložky")
-            save_folder = os.path.join(folder, "annotated")
-            os.makedirs(save_folder, exist_ok=True)
+            save_folder = folder / "annotated"
+            save_folder.mkdir(exist_ok=True)
 
-        save_path = os.path.join(save_folder, os.path.basename(path))
+        save_path = save_folder / path.name
 
         # --- renderovanie obrázku ---
         img_rect = self.view.scene.sceneRect()
@@ -357,11 +404,12 @@ class MainWindow(QMainWindow):
         painter.end()
 
         # --- uloženie ---
-        ext = os.path.splitext(save_path)[1].lower()
+        ext = save_path.suffix.lower()
         if ext in [".jpg", ".jpeg"]:
-            image.save(save_path, "JPEG", quality=100)
+            image.save(str(save_path), "JPEG", quality=100)
         else:
-            image.save(save_path)
+            image.save(str(save_path))
+
         self.log(f"Uložené do: {save_path}")
 
     # ============================
@@ -371,7 +419,7 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "image_list") or not self.image_list:
             return
         path = self.image_list[self.current_image_idx]
-        img = cv2.imread(path)
+        img = load_image_unicode(path)
         if img is None:
             self.log(f"Failed to load image: {path}")
             return
@@ -420,16 +468,14 @@ class MainWindow(QMainWindow):
         self._drag_active = False
 
     def update_tool_highlight(self):
-        # Pre všetky tool actions, zapnuté iba aktuálne
-        if not hasattr(self, "tool_actions"):
-            return
         current_tool = self.tool_manager.current_tool
         for label, act in self.tool_actions.items():
-            if label == "None" and current_tool is None:
+            tool_name = act.text().upper()  # normalizácia
+            if current_tool is None and tool_name == "NONE":
                 act.setChecked(True)
-            elif current_tool and act.text() == self.tool_manager.current_tool:
+            elif current_tool and tool_name == current_tool.upper():
                 act.setChecked(True)
-            elif act.text() != "None":
+            else:
                 act.setChecked(False)
 
     def open_settings(self):
@@ -440,7 +486,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
-    from gui.gui_main import MainWindow
+    from gui_main import MainWindow
 
     app = QApplication(sys.argv)
     w = MainWindow()

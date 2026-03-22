@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QPen, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsPathItem
-
+from PyQt6.QtCore import Qt
 
 class ToolManager:
     def __init__(self, view, log_callback=None, antialiasing=True):
@@ -17,10 +17,15 @@ class ToolManager:
         self.first_move_done = False
 
         # --- AA ---
-        self.antialiasing = True  # default AA zapnuté
+        self.antialiasing = True
+
+        # --- drag ---
+        self._dragging_scene = False
+        self._drag_start_pos = None
 
         # --- tools instances ---
         self.tools = self._init_tools()
+        self.current_tool_obj = None
 
     def _init_tools(self):
         from .pencil import PencilTool
@@ -46,7 +51,7 @@ class ToolManager:
 
     # ---------- TOOL ----------
     def set_tool(self, tool_name):
-        if hasattr(self, "current_tool_obj") and getattr(self.current_tool_obj, "editing", False):
+        if getattr(self.current_tool_obj, "editing", False):
             self.current_tool_obj._finalize_text(self)
 
         self._clear_preview()
@@ -56,8 +61,10 @@ class ToolManager:
 
         if tool_name is None:
             self.view.setDragMode(self.view.DragMode.ScrollHandDrag)
+            self.view.viewport().setCursor(Qt.CursorShape.ArrowCursor)
         else:
             self.view.setDragMode(self.view.DragMode.NoDrag)
+            self.view.viewport().setCursor(Qt.CursorShape.CrossCursor)
 
         self.log(f"[Tool] Tool set to {tool_name if tool_name else 'NONE'}")
 
@@ -67,25 +74,39 @@ class ToolManager:
 
     # ---------- MOUSE EVENTS ----------
     def mousePressEvent(self, event):
-        if not self.view.pixmap_item or self.current_tool is None:
-            return
-        tool = self.tools.get(self.current_tool)
-        if tool:
-            tool.mousePress(self, event)
+        if self.current_tool is None:
+            self._start_scene_drag(event)
+        elif self.current_tool_obj:
+            self.current_tool_obj.mousePress(self, event)
 
     def mouseMoveEvent(self, event):
-        if not self.view.pixmap_item or self.current_tool is None:
-            return
-        tool = self.tools.get(self.current_tool)
-        if tool:
-            tool.mouseMove(self, event)
+        if self.current_tool is None:
+            self._update_scene_drag(event)
+        elif self.current_tool_obj:
+            self.current_tool_obj.mouseMove(self, event)
 
     def mouseReleaseEvent(self, event):
-        if not self.view.pixmap_item or self.current_tool is None:
-            return
-        tool = self.tools.get(self.current_tool)
-        if tool:
-            tool.mouseRelease(self, event)
+        if self.current_tool is None:
+            self._end_scene_drag(event)
+        elif self.current_tool_obj:
+            self.current_tool_obj.mouseRelease(self, event)
+
+    # ---------- SCENE DRAG HELPERS ----------
+    def _start_scene_drag(self, event):
+        self._dragging_scene = True
+        self._drag_start_pos = event.position()
+        self.view.viewport().setCursor(Qt.CursorShape.OpenHandCursor)
+
+    def _update_scene_drag(self, event):
+        if self._dragging_scene:
+            # tu môžeš implementovať vlastný posun scény podľa myši
+            self.view.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def _end_scene_drag(self, event):
+        self._dragging_scene = False
+        self._drag_start_pos = None
+        self.view.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+
 
     # ---------- KEY EVENTS ----------
     def keyPressEvent(self, event):
@@ -116,19 +137,17 @@ class ToolManager:
 
     # ---------- PREVIEW ----------
     def _update_preview(self, path_or_item):
-        # odstráni staré preview
         for line in self.preview_lines:
             self.view.scene.removeItem(line)
         self.preview_lines.clear()
 
-        # pridá nové preview
         item = QGraphicsPathItem(path_or_item) if not isinstance(path_or_item, QGraphicsPathItem) else path_or_item
         if not isinstance(path_or_item, QGraphicsPathItem):
             pen = QPen(QColor(0,0,0), self.brush_size)
-            # renderovanie AA podľa nastavení
             if self.antialiasing:
-                pen.setCosmetic(False)  # nech škáluje s zoomom a použije AA
+                pen.setCosmetic(False)
             item.setPen(pen)
+
         self.view.scene.addItem(item)
         self.preview_lines.append(item)
 
@@ -140,6 +159,8 @@ class ToolManager:
         self.current_poly_points.clear()
         self.preview_lines.clear()
         self.view.setDragMode(self.view.DragMode.ScrollHandDrag)
+        self.view.viewport().setCursor(Qt.CursorShape.ArrowCursor)
 
+    # ---------- ANTIALIASING ----------
     def set_antialiasing(self, value: bool):
         self.antialiasing = value

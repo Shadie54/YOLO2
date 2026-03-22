@@ -14,14 +14,14 @@ def register_shortcuts(main_window):
         main_window._shortcuts.append(sc)
 
     # -------- Tools --------
-    add("C", lambda: (tm.set_tool("PENCIL"), main_window.update_tool_highlight("PENCIL")))
-    add("X", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight("ERASER")))
-    add("L", lambda: (tm.set_tool("LINE"), main_window.update_tool_highlight("LINE")))
-    add("P", lambda: (tm.set_tool("POLYLINE"), main_window.update_tool_highlight("POLYLINE")))
-    add("V", lambda: (tm.set_tool("POLYCURVE"), main_window.update_tool_highlight("POLYCURVE")))
-    add("T", lambda: (tm.set_tool("TEXT"), main_window.update_tool_highlight("TEXT")))
-    add("E", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight("ERASER")))
-    add("Escape", lambda: (tm.set_tool(None), main_window.update_tool_highlight(None)))
+    add("C", lambda: (tm.set_tool("PENCIL"), main_window.update_tool_highlight()))
+    add("X", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight()))
+    add("L", lambda: (tm.set_tool("LINE"), main_window.update_tool_highlight()))
+    add("P", lambda: (tm.set_tool("POLYLINE"), main_window.update_tool_highlight()))
+    add("V", lambda: (tm.set_tool("POLYCURVE"), main_window.update_tool_highlight()))
+    add("T", lambda: (tm.set_tool("TEXT"), main_window.update_tool_highlight()))
+    add("E", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight()))
+    add("Escape", lambda: (tm.set_tool(None), main_window.update_tool_highlight()))
 
     # -------- Actions --------
     add("Ctrl+Z", view.undo)
