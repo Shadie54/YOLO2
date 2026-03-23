@@ -1,12 +1,14 @@
 # tools/text.py
-from PyQt6.QtWidgets import QGraphicsTextItem, QColorDialog
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QFontComboBox, QSpinBox, QPushButton, QColorDialog
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtCore import Qt
 from items.items import TextItem
 
 class TextTool:
+    """Text tool s panelom na nastavenie fontu, veľkosti, štýlu, farby a vrstvy"""
+
     def __init__(self):
-        self.text_item = None        # aktuálny TextItem, ktorý sa píše
+        self.text_item = None        # aktuálny TextItem
         self.editing = False         # či je aktívne písanie
         # nastavenia pre nový text
         self.current_font = QFont("Arial", 16)
@@ -15,7 +17,9 @@ class TextTool:
         self.current_size = 16
         self.current_color = QColor("black")
 
-    # ---------- TEXT PANEL METHODS ----------
+    # ===========================
+    # TEXT PANEL METHODS
+    # ===========================
     def set_font(self, font):
         self.current_font = font
         if self.text_item:
@@ -53,7 +57,21 @@ class TextTool:
         if self.text_item:
             self.text_item.setDefaultTextColor(color)
 
-    # ---------- MOUSE EVENTS ----------
+    # ===========================
+    # LAYER METHODS
+    # ===========================
+    def bring_forward(self):
+        if self.text_item:
+            self.text_item.setZValue(self.text_item.zValue() + 1)
+            #self.log(f"Z-value: {item.zValue()}")
+
+    def send_backward(self):
+        if self.text_item:
+            self.text_item.setZValue(self.text_item.zValue() - 1)
+            #self.log(f"Z-value: {item.zValue()}")
+    # ===========================
+    # MOUSE EVENTS
+    # ===========================
     def mousePress(self, manager, event):
         scene_pos = manager.view.mapToScene(event.pos())
         if not self.editing:
@@ -74,29 +92,31 @@ class TextTool:
             self.text_item.setFocus()
             self.editing = True
         else:
-            # klik mimo? nič sa nedeje
-            pass
+            pass  # klik mimo nezasahuje
 
     def mouseMove(self, manager, event):
-        # TextTool sa nepohybuje pri drag, ignorujeťe
+        # TextTool sa nepohybuje pri drag
         pass
 
     def mouseRelease(self, manager, event):
         pass
 
-    # ---------- KEY EVENTS ----------
+    # ===========================
+    # KEY EVENTS
+    # ===========================
     def keyPress(self, manager, event):
         if not self.editing or not self.text_item:
             return
-        if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self._finalize_text(manager)
         elif event.key() == Qt.Key.Key_Escape:
-            # zrušíme textbox bez pridania do undo
             manager.view.scene.removeItem(self.text_item)
             self.text_item = None
             self.editing = False
 
-    # ---------- FINALIZE ----------
+    # ===========================
+    # FINALIZE
+    # ===========================
     def _finalize_text(self, manager):
         if self.text_item:
             manager.add_to_undo(self.text_item)

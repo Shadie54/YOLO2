@@ -271,13 +271,24 @@ class MainWindow(QMainWindow):
         self.size_box.setRange(6, 200)
         self.size_box.setValue(25)
         self.bold_btn = QPushButton("B")
+        self.bold_btn.setToolTip("Tučné písmo")
         self.bold_btn.setCheckable(True)
         self.italic_btn = QPushButton("I")
+        self.italic_btn.setToolTip("Kurzíva")
         self.italic_btn.setCheckable(True)
         self.color_btn = QPushButton("Color")
+        self.color_btn.setToolTip("Farebná paleta")
 
-        for w in [self.font_box, self.size_box, self.bold_btn, self.italic_btn, self.color_btn]:
+        # --- Z-order buttons ---
+        self.bring_forward_btn = QPushButton("↑↑")
+        self.bring_forward_btn.setToolTip("Preniesť TEXT dopredu")
+        self.send_backward_btn = QPushButton("↓↓")
+        self.send_backward_btn.setToolTip("Preniesť TEXT dozadu")
+
+        for w in [self.font_box, self.size_box, self.bold_btn, self.italic_btn, self.color_btn,
+                  self.bring_forward_btn, self.send_backward_btn]:
             layout.addWidget(w)
+
         self.text_panel.setLayout(layout)
 
         # --- Connect to TextTool ---
@@ -297,6 +308,14 @@ class MainWindow(QMainWindow):
         )
         self.color_btn.clicked.connect(
             lambda: self.tool_manager.current_tool_obj.set_color() if self.tool_manager.current_tool_obj else None
+        )
+
+        # --- Connect Z-order ---
+        self.bring_forward_btn.clicked.connect(
+            lambda: self.tool_manager.current_tool_obj.bring_forward() if self.tool_manager.current_tool_obj else None
+        )
+        self.send_backward_btn.clicked.connect(
+            lambda: self.tool_manager.current_tool_obj.send_backward() if self.tool_manager.current_tool_obj else None
         )
 
         # --- Drag panel ---
