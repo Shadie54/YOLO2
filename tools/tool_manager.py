@@ -41,7 +41,7 @@ class ToolManager:
             "LINE": LineTool(),
             "POLYLINE": PolylineTool(),
             "POLYCURVE": PolycurveTool(),
-            "TEXT": TextTool(),
+            "TEXT": TextTool(manager=self)
         }
 
     # ---------- LOG ----------

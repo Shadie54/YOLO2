@@ -414,15 +414,37 @@ class MainWindow(QMainWindow):
 
         save_path = save_folder / path.name
 
-        # --- renderovanie obrázku ---
+        # =========================
+        # 🔴 SKRY YOLO BOXY
+        # =========================
+        from items.items import YoloBox
+
+        hidden_items = []
+        for item in self.view.scene.items():
+            if isinstance(item, YoloBox):
+                hidden_items.append(item)
+                item.setOpacity(0)  # 🔥 spoľahlivé
+
+        # =========================
+        # 🎨 RENDER
+        # =========================
         img_rect = self.view.scene.sceneRect()
         image = QImage(int(img_rect.width()), int(img_rect.height()), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.white)
+
         painter = QPainter(image)
         self.view.scene.render(painter)
         painter.end()
 
-        # --- uloženie ---
+        # =========================
+        # 🔄 OBNOV YOLO BOXY
+        # =========================
+        for item in hidden_items:
+            item.setOpacity(1)
+
+        # =========================
+        # 💾 SAVE
+        # =========================
         ext = save_path.suffix.lower()
         if ext in [".jpg", ".jpeg"]:
             image.save(str(save_path), "JPEG", quality=100)
@@ -459,7 +481,7 @@ class MainWindow(QMainWindow):
             rect = QRectF(x1, y1, x2 - x1, y2 - y1)
             box = YoloBox(rect, label, self.view.scene)
             self.view.scene.addItem(box)
-            self.view.undo_stack.append(box)
+            #self.view.undo_stack.append(box)
             count += 1
         self.log(f"YOLO: {count} detections")
 
