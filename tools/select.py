@@ -1,12 +1,11 @@
-# test_selection_rotate.py
-import sys, math
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QGraphicsRectItem
-)
-from PyQt6.QtGui import QPen, QColor, QPainter, QPixmap
-from PyQt6.QtCore import Qt, QRectF, QPointF
+# tools/select.py
+import math
+from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem
+from PyQt6.QtGui import QPen, QColor
+from PyQt6.QtCore import Qt, QRectF
 
 class SelectionItem(QGraphicsPixmapItem):
+    """Objekt, ktorý môže byť vybraný, presunutý a rotovaný."""
     def __init__(self, pixmap):
         super().__init__(pixmap)
         self.setFlags(
@@ -51,78 +50,61 @@ class SelectionItem(QGraphicsPixmapItem):
         self.rotating = False
         super().mouseReleaseEvent(event)
 
-# ----------------- Scene -----------------
-class SelectionScene(QGraphicsScene):
-    def __init__(self, background_pixmap):
-        super().__init__()
-        self.background_pixmap = background_pixmap
+
+# ----------------- SELECT TOOL -----------------
+class SelectTool:
+    def __init__(self, manager):
+        self.manager = manager
         self.origin = None
         self.temp_rect = None
-        self.copied_item = None
+        self.selected_item = None
 
-        self.bg_item = QGraphicsPixmapItem(self.background_pixmap)
-        self.bg_item.setZValue(-1000)
-        self.addItem(self.bg_item)
+    # ---------- MOUSE ----------
+    def mousePress(self, manager, event):
+        view = manager.view
+        scene = view.scene
 
-    def mousePressEvent(self, event):
-        item = self.itemAt(event.scenePos(), self.views()[0].transform())
-        if item is None or item == self.bg_item:
-            self.origin = event.scenePos()
+        if not view.pixmap_item:
+            return
+
+        item = scene.itemAt(view.mapToScene(event.position().toPoint()), view.transform())
+        if item is None or item == view.pixmap_item:
+            # Začiatok selekcie
+            self.origin = view.mapToScene(event.position().toPoint())
             self.temp_rect = QGraphicsRectItem(QRectF(self.origin, self.origin))
             pen = QPen(QColor(0,120,215),2,Qt.PenStyle.DashLine)
             self.temp_rect.setPen(pen)
             self.temp_rect.setBrush(QColor(0,120,215,50))
             self.temp_rect.setZValue(2000)
-            self.addItem(self.temp_rect)
+            scene.addItem(self.temp_rect)
         else:
-            super().mousePressEvent(event)
+            # Klik na existujúci
+            self.selected_item = item
+            item.setSelected(True)
 
-    def mouseMoveEvent(self, event):
+    def mouseMove(self, manager, event):
+        view = manager.view
+        scene = view.scene
         if self.temp_rect:
-            rect = QRectF(self.origin, event.scenePos()).normalized()
+            rect = QRectF(self.origin, view.mapToScene(event.position().toPoint())).normalized()
             self.temp_rect.setRect(rect)
-        else:
-            super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseRelease(self, manager, event):
+        view = manager.view
+        scene = view.scene
         if self.temp_rect:
             rect = self.temp_rect.rect()
-            if rect.width()>5 and rect.height()>5:
-                pixmap = self.background_pixmap.copy(
+            if rect.width() > 5 and rect.height() > 5:
+                pixmap = view.pixmap_item.pixmap().copy(
                     int(rect.x()), int(rect.y()), int(rect.width()), int(rect.height())
                 )
                 item = SelectionItem(pixmap)
                 item.setPos(rect.topLeft())
-                self.addItem(item)
+                scene.addItem(item)
                 item.setSelected(True)
-            self.removeItem(self.temp_rect)
+                manager.add_to_undo(item)
+            scene.removeItem(self.temp_rect)
             self.temp_rect = None
-        else:
-            super().mouseReleaseEvent(event)
 
-# ----------------- View -----------------
-class GraphicsView(QGraphicsView):
-    def __init__(self, scene):
-        super().__init__(scene)
-        self.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-# ----------------- MainWindow -----------------
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Selection Tool + Rotate")
-        pixmap = QPixmap("test.jpg")
-        self.scene = SelectionScene(pixmap)
-        self.view = GraphicsView(self.scene)
-        self.setCentralWidget(self.view)
-
-# ----------------- Main -----------------
-def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.resize(900,600)
-    window.show()
-    sys.exit(app.exec())
-
-if __name__=="__main__":
-    main()
+    def mouseReleaseEvent(self, manager, event):
+        self.mouseRelease(manager, event)

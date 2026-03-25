@@ -145,32 +145,41 @@ class MainWindow(QMainWindow):
         def tool_btn(icon_name, label, tool_name=None, func=None, tooltip=None):
             act = QAction(icon(str(ICON_DIR / icon_name)), label, self)
             act.setCheckable(True)
-            if func:
-                act.triggered.connect(func)
-            elif tool_name:
-                def wrapper():
-                    self.tool_manager.set_tool(tool_name)
-                    for a in tool_group.actions():
-                        a.setChecked(a == act)
-                    self.update_text_panel_visibility(tool_name)
-                act.triggered.connect(wrapper)
-            else:
-                act.triggered.connect(lambda: self.tool_manager.set_tool(None))
+
+            def handler():
+                if func:
+                    func()
+                    return
+
+                # None = Mouse tool
+                self.tool_manager.set_tool(tool_name)
+
+                # highlight
+                for a in tool_group.actions():
+                    a.setChecked(a == act)
+
+                # 🔥 vždy aktualizuj panel
+                self.update_text_panel_visibility(tool_name)
+
+            act.triggered.connect(handler)
+
             if tooltip:
                 act.setToolTip(tooltip)
+
             tool_group.addAction(act)
             draw_tb.addAction(act)
             self.tool_actions[label] = act
             return act
 
         # --- Tool buttons ---
-        tool_btn("mouse.png", "None", None, tooltip="Select/Move (None)")
+        tool_btn("mouse.png", "Mouse", None, tooltip="Mouse (M)")
         tool_btn("pencil.png", "Pencil", "PENCIL", tooltip="Pencil (C)")
         tool_btn("line.png", "Line", "LINE", tooltip="Line (L)")
         tool_btn("polyline.png", "Polyline", "POLYLINE", tooltip="Polyline (P)")
         tool_btn("polycurve.png", "Polycurve", "POLYCURVE", tooltip="Polycurve (V)")
         tool_btn("eraser.png", "Eraser", "ERASER", tooltip="Guma (E)")
         tool_btn("text.png", "Text", "TEXT", tooltip="Text (T)")
+        tool_btn( "select.png","Select","SELECT",tooltip="Copy Select (S)")
 
         # --- Undo ---
         undo_act = QAction(icon(str(ICON_DIR / "undo.png")), "Undo", self)
@@ -276,17 +285,8 @@ class MainWindow(QMainWindow):
         self.italic_btn = QPushButton("I")
         self.italic_btn.setToolTip("Kurzíva")
         self.italic_btn.setCheckable(True)
-        self.color_btn = QPushButton("Color")
-        self.color_btn.setToolTip("Farebná paleta")
 
-        # --- Z-order buttons ---
-        self.bring_forward_btn = QPushButton("↑↑")
-        self.bring_forward_btn.setToolTip("Preniesť TEXT dopredu")
-        self.send_backward_btn = QPushButton("↓↓")
-        self.send_backward_btn.setToolTip("Preniesť TEXT dozadu")
-
-        for w in [self.font_box, self.size_box, self.bold_btn, self.italic_btn, self.color_btn,
-                  self.bring_forward_btn, self.send_backward_btn]:
+        for w in [self.font_box, self.size_box, self.bold_btn, self.italic_btn]:
             layout.addWidget(w)
 
         self.text_panel.setLayout(layout)
@@ -306,18 +306,6 @@ class MainWindow(QMainWindow):
             lambda: self.tool_manager.current_tool_obj.set_italic(
                 self.italic_btn.isChecked()) if self.tool_manager.current_tool_obj else None
         )
-        self.color_btn.clicked.connect(
-            lambda: self.tool_manager.current_tool_obj.set_color() if self.tool_manager.current_tool_obj else None
-        )
-
-        # --- Connect Z-order ---
-        self.bring_forward_btn.clicked.connect(
-            lambda: self.tool_manager.current_tool_obj.bring_forward() if self.tool_manager.current_tool_obj else None
-        )
-        self.send_backward_btn.clicked.connect(
-            lambda: self.tool_manager.current_tool_obj.send_backward() if self.tool_manager.current_tool_obj else None
-        )
-
         # --- Drag panel ---
         self.text_panel.mousePressEvent = self.mousePressEventTextPanel
         self.text_panel.mouseMoveEvent = self.mouseMoveEventTextPanel
@@ -512,7 +500,7 @@ class MainWindow(QMainWindow):
         current_tool = self.tool_manager.current_tool
         for label, act in self.tool_actions.items():
             tool_name = act.text().upper()  # normalizácia
-            if current_tool is None and tool_name == "NONE":
+            if current_tool is None and tool_name == "MOUSE":
                 act.setChecked(True)
             elif current_tool and tool_name == current_tool.upper():
                 act.setChecked(True)

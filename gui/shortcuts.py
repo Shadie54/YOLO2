@@ -14,6 +14,7 @@ def register_shortcuts(main_window):
         main_window._shortcuts.append(sc)
 
     # -------- Tools --------
+    add("M", lambda: (tm.set_tool("MOUSE"), main_window.update_tool_highlight()))
     add("C", lambda: (tm.set_tool("PENCIL"), main_window.update_tool_highlight()))
     add("X", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight()))
     add("L", lambda: (tm.set_tool("LINE"), main_window.update_tool_highlight()))
@@ -21,6 +22,7 @@ def register_shortcuts(main_window):
     add("V", lambda: (tm.set_tool("POLYCURVE"), main_window.update_tool_highlight()))
     add("T", lambda: (tm.set_tool("TEXT"), main_window.update_tool_highlight()))
     add("E", lambda: (tm.set_tool("ERASER"), main_window.update_tool_highlight()))
+    add("S", lambda: (tm.set_tool("SELECT"), main_window.update_tool_highlight()))
     add("Escape", lambda: (tm.set_tool(None), main_window.update_tool_highlight()))
 
     # -------- Actions --------

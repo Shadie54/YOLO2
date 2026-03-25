@@ -34,6 +34,7 @@ class ToolManager:
         from .polyline import PolylineTool
         from .polycurve import PolycurveTool
         from .text import TextTool
+        from .select import SelectTool
 
         return {
             "PENCIL": PencilTool(),
@@ -41,7 +42,9 @@ class ToolManager:
             "LINE": LineTool(),
             "POLYLINE": PolylineTool(),
             "POLYCURVE": PolycurveTool(),
-            "TEXT": TextTool(manager=self)
+            "TEXT": TextTool(manager=self),
+             "SELECT": SelectTool(self),
+
         }
 
     # ---------- LOG ----------
@@ -66,7 +69,7 @@ class ToolManager:
             self.view.setDragMode(self.view.DragMode.NoDrag)
             self.view.viewport().setCursor(Qt.CursorShape.CrossCursor)
 
-        self.log(f"[Tool] Tool set to {tool_name if tool_name else 'NONE'}")
+        self.log(f"[Tool] Tool set to {tool_name if tool_name else 'MOUSE'}")
 
     # ---------- RESET ----------
     def reset(self):
