@@ -6,10 +6,10 @@ from PyQt6.QtCore import Qt
 from pathlib import Path
 
 class TextItem(QGraphicsTextItem):
-    def __init__(self, text="Sem píš..."):
+    def __init__(self, text="Sem píš text"):
         super().__init__(text)
 
-        self.setFont(QFont("Arial", 16))
+        self.setFont(QFont("Arial", 25))
         self.setDefaultTextColor(QColor("black"))
 
         self.setFlags(
@@ -156,7 +156,7 @@ class TextTool:
                 return
 
         # nový textbox
-        self.text_item = TextItem("Sem píš...")
+        self.text_item = TextItem("Sem píš text")
         self.text_item.setPos(scene_pos)
 
         scene.addItem(self.text_item)

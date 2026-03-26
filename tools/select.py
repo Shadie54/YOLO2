@@ -1,11 +1,13 @@
 # tools/select.py
 import math
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem
-from PyQt6.QtGui import QPen, QColor
+from PyQt6.QtGui import QPen, QColor, QPixmap, QCursor
 from PyQt6.QtCore import Qt, QRectF
+from pathlib import Path
 
 class SelectionItem(QGraphicsPixmapItem):
     """Objekt, ktorý môže byť vybraný, presunutý a rotovaný."""
+
     def __init__(self, pixmap):
         super().__init__(pixmap)
         self.setFlags(
@@ -20,22 +22,60 @@ class SelectionItem(QGraphicsPixmapItem):
         self.start_angle = 0
         self.start_rotation = 0
 
+        # kurzory
+        BASE_DIR = Path(__file__).resolve().parent.parent
+        rotate_icon = QPixmap(str(BASE_DIR / "assets" / "icons" / "rotate.png")).scaled(24, 24)
+        self.rotate_cursor = QCursor(rotate_icon, 12, 12)
+        self.move_cursor = QCursor(Qt.CursorShape.SizeAllCursor)
+
+        self.margin = 6
+        self.setTransformOriginPoint(self.boundingRect().center())
+
+    # ---------------- HELPERS ----------------
+    def is_near_edge(self, pos):
+        r = self.boundingRect()
+        return (
+            abs(pos.x() - r.left()) < self.margin or
+            abs(pos.x() - r.right()) < self.margin or
+            abs(pos.y() - r.top()) < self.margin or
+            abs(pos.y() - r.bottom()) < self.margin
+        )
+
+    # ---------------- EVENTS ----------------
+    def hoverMoveEvent(self, event):
+        modifiers = event.modifiers()
+
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            self.setCursor(self.rotate_cursor)
+        else:
+            # Move cursor na celý objekt
+            self.setCursor(self.move_cursor)
+
+        super().hoverMoveEvent(event)
+
     def mousePressEvent(self, event):
+        self.setTransformOriginPoint(self.boundingRect().center())
+
         if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self.rotating = True
-            center = self.mapToScene(self.boundingRect().center())
+            center = self.mapToScene(self.transformOriginPoint())
             mouse = event.scenePos()
             dx = mouse.x() - center.x()
             dy = mouse.y() - center.y()
             self.start_angle = math.degrees(math.atan2(dy, dx))
             self.start_rotation = self.rotation()
+            self.setCursor(self.rotate_cursor)
             event.accept()
             return
+
+        if self.is_near_edge(event.pos()):
+            self.setCursor(self.move_cursor)
+
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         if self.rotating:
-            center = self.mapToScene(self.boundingRect().center())
+            center = self.mapToScene(self.transformOriginPoint())
             mouse = event.scenePos()
             dx = mouse.x() - center.x()
             dy = mouse.y() - center.y()

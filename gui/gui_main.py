@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QBoxLayout, QHBoxLayout, QFontComboBox, QSpinBox, QPushButton
 )
 from PyQt6.QtGui import QIcon, QImage, QPainter, QAction, QActionGroup, QFont
-from PyQt6.QtCore import Qt, QSize, QRectF
+from PyQt6.QtCore import Qt, QSize, QRectF, QSettings
 from gui.image_view import ImageView
 from gui.shortcuts import register_shortcuts
 from tools.tool_manager import ToolManager
@@ -77,16 +77,40 @@ class MainWindow(QMainWindow):
         self.init_navigation_toolbar(ICON_DIR, ICON_SIZE)
 
         # ---------- Text Tool Panel ----------
-        self.init_text_panel()
+        self.init_text_panel(ICON_DIR)
 
         # ---------- Shortcuts ----------
         register_shortcuts(self)
+
+        # ---------- Saving last toolbar layout ----------
+        settings = QSettings("YOLO2", "App")
+
+        # --- RESET LAYOUTU JEDNORAZOVO ---
+        # Odkomentuj a uložený layout sa resetuje
+        #settings.clear()
+
+        geometry = settings.value("geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+
+        state = settings.value("windowState")
+        if state:
+            self.restoreState(state)
+
+    def closeEvent(self, event):
+        settings = QSettings("YOLO2", "App")
+
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("windowState", self.saveState())
+
+        super().closeEvent(event)
 
     # ============================
     # Initialization of Toolbars
     # ============================
     def init_actions_toolbar(self, ICON_DIR, ICON_SIZE):
         actions_tb = QToolBar("Actions")
+        actions_tb.setObjectName("actions_toolbar")
         actions_tb.setIconSize(ICON_SIZE)
         actions_tb.setMovable(True)
         actions_tb.setFloatable(True)
@@ -133,6 +157,7 @@ class MainWindow(QMainWindow):
 
     def init_draw_toolbar(self, ICON_DIR, ICON_SIZE):
         draw_tb = QToolBar("Draw Tools")
+        draw_tb.setObjectName("draw_toolbar")
         draw_tb.setIconSize(ICON_SIZE)
         draw_tb.setMovable(True)
         draw_tb.setFloatable(True)
@@ -173,13 +198,14 @@ class MainWindow(QMainWindow):
 
         # --- Tool buttons ---
         tool_btn("mouse.png", "Mouse", None, tooltip="Mouse (M)")
+        tool_btn("select.png", "Select", "SELECT", tooltip="Copy Select (S)")
         tool_btn("pencil.png", "Pencil", "PENCIL", tooltip="Pencil (C)")
         tool_btn("line.png", "Line", "LINE", tooltip="Line (L)")
         tool_btn("polyline.png", "Polyline", "POLYLINE", tooltip="Polyline (P)")
         tool_btn("polycurve.png", "Polycurve", "POLYCURVE", tooltip="Polycurve (V)")
         tool_btn("eraser.png", "Eraser", "ERASER", tooltip="Guma (E)")
         tool_btn("text.png", "Text", "TEXT", tooltip="Text (T)")
-        tool_btn( "select.png","Select","SELECT",tooltip="Copy Select (S)")
+
 
         # --- Undo ---
         undo_act = QAction(icon(str(ICON_DIR / "undo.png")), "Undo", self)
@@ -189,6 +215,7 @@ class MainWindow(QMainWindow):
 
     def init_brush_toolbar(self, ICON_SIZE):
         self.brush_tb = QToolBar("Brush")
+        self.brush_tb.setObjectName("brush_toolbar")
         self.brush_tb.setIconSize(ICON_SIZE)
         self.brush_tb.setMovable(True)
         self.brush_tb.setFloatable(True)
@@ -232,6 +259,7 @@ class MainWindow(QMainWindow):
 
     def init_navigation_toolbar(self, ICON_DIR, ICON_SIZE):
         nav_tb = QToolBar("Navigation")
+        nav_tb.setObjectName("nav_toolbar")
         nav_tb.setIconSize(ICON_SIZE)
         nav_tb.setMovable(True)
         nav_tb.setFloatable(True)
@@ -264,7 +292,7 @@ class MainWindow(QMainWindow):
     # ============================
     # Text Tool Panel
     # ============================
-    def init_text_panel(self):
+    def init_text_panel(self, ICON_DIR):
         self.text_panel = QWidget(self, flags=Qt.WindowType.Tool)
         self.text_panel.setWindowTitle("Text Tool")
         self.text_panel.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
@@ -289,27 +317,57 @@ class MainWindow(QMainWindow):
         for w in [self.font_box, self.size_box, self.bold_btn, self.italic_btn]:
             layout.addWidget(w)
 
+        # --- Layer Buttons ---
+        self.bring_forward_btn = QPushButton()
+        self.bring_forward_btn.setIcon(QIcon(str(ICON_DIR / "bring_forward.png")))
+        self.bring_forward_btn.setToolTip("Bring text forward (above others)")
+        self.bring_forward_btn.clicked.connect(self.bring_text_forward)
+
+        self.send_backward_btn = QPushButton()
+        self.send_backward_btn.setIcon(QIcon(str(ICON_DIR / "send_backward.png")))
+        self.send_backward_btn.setToolTip("Send text backward (behind others)")
+        self.send_backward_btn.clicked.connect(self.send_text_backward)
+
+        for w in [self.bring_forward_btn, self.send_backward_btn]:
+            layout.addWidget(w)
+
         self.text_panel.setLayout(layout)
 
         # --- Connect to TextTool ---
         self.font_box.currentFontChanged.connect(
-            lambda f: self.tool_manager.current_tool_obj.set_font(f) if self.tool_manager.current_tool_obj else None
+            lambda f: self.tool_manager.current_tool_obj.set_font(f)
+            if self.tool_manager.current_tool_obj else None
         )
         self.size_box.valueChanged.connect(
-            lambda s: self.tool_manager.current_tool_obj.set_size(s) if self.tool_manager.current_tool_obj else None
+            lambda s: self.tool_manager.current_tool_obj.set_size(s)
+            if self.tool_manager.current_tool_obj else None
         )
         self.bold_btn.clicked.connect(
             lambda: self.tool_manager.current_tool_obj.set_bold(
-                self.bold_btn.isChecked()) if self.tool_manager.current_tool_obj else None
+                self.bold_btn.isChecked()
+            ) if self.tool_manager.current_tool_obj else None
         )
         self.italic_btn.clicked.connect(
             lambda: self.tool_manager.current_tool_obj.set_italic(
-                self.italic_btn.isChecked()) if self.tool_manager.current_tool_obj else None
+                self.italic_btn.isChecked()
+            ) if self.tool_manager.current_tool_obj else None
         )
+
         # --- Drag panel ---
         self.text_panel.mousePressEvent = self.mousePressEventTextPanel
         self.text_panel.mouseMoveEvent = self.mouseMoveEventTextPanel
         self.text_panel.mouseReleaseEvent = self.mouseReleaseEventTextPanel
+
+    def bring_text_forward(self):
+        tool = getattr(self.tool_manager.current_tool_obj, "text_item", None)
+        if tool:
+            tool.setZValue(tool.zValue() + 1)
+
+    def send_text_backward(self):
+        tool = getattr(self.tool_manager.current_tool_obj, "text_item", None)
+        if tool:
+            new_z = max(0, tool.zValue() - 1)  # nikdy pod 0
+            tool.setZValue(new_z)
 
     def update_text_panel_visibility(self, tool_name):
         if tool_name == "TEXT":
