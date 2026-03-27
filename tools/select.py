@@ -1,9 +1,10 @@
 # tools/select.py
 import math
-from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem
+from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem, QToolTip
 from PyQt6.QtGui import QPen, QColor, QPixmap, QCursor
-from PyQt6.QtCore import Qt, QRectF
+from PyQt6.QtCore import Qt, QRectF, QPoint
 from pathlib import Path
+from utils.layer_tooltip import show_layer_tooltip
 
 class SelectionItem(QGraphicsPixmapItem):
     """Objekt, ktorý môže byť vybraný, presunutý a rotovaný."""
@@ -15,7 +16,7 @@ class SelectionItem(QGraphicsPixmapItem):
             QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable
         )
         self.setAcceptHoverEvents(True)
-        self.setZValue(1000)
+        #self.setZValue(1000)
 
         # ROTATION
         self.rotating = False
@@ -108,19 +109,23 @@ class SelectTool:
             return
 
         item = scene.itemAt(view.mapToScene(event.position().toPoint()), view.transform())
+
         if item is None or item == view.pixmap_item:
-            # Začiatok selekcie
+            # Začiatok selekcie (rubber band)
             self.origin = view.mapToScene(event.position().toPoint())
             self.temp_rect = QGraphicsRectItem(QRectF(self.origin, self.origin))
-            pen = QPen(QColor(0,120,215),2,Qt.PenStyle.DashLine)
+            pen = QPen(QColor(0, 120, 215), 2, Qt.PenStyle.DashLine)
             self.temp_rect.setPen(pen)
-            self.temp_rect.setBrush(QColor(0,120,215,50))
+            self.temp_rect.setBrush(QColor(0, 120, 215, 50))
             self.temp_rect.setZValue(2000)
             scene.addItem(self.temp_rect)
         else:
-            # Klik na existujúci
+            # Klik na existujúci objekt
             self.selected_item = item
             item.setSelected(True)
+
+            # --- tooltip pomocou globálneho helpera ---
+            show_layer_tooltip(item, event, manager.view.viewport())
 
     def mouseMove(self, manager, event):
         view = manager.view

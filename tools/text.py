@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QGraphicsTextItem, QGraphicsItem
 from PyQt6.QtGui import QFont, QColor, QCursor, QPixmap, QPen
 from PyQt6.QtCore import Qt
 from pathlib import Path
+from utils.layer_tooltip import show_layer_tooltip
 
 class TextItem(QGraphicsTextItem):
     def __init__(self, text="Sem píš text"):
@@ -143,28 +144,32 @@ class TextTool:
 
         # deselect všetko
         for item in scene.items():
-            if isinstance(item, TextItem):
+            if hasattr(item, "setSelected"):
                 item.setSelected(False)
 
-        # klik na existujúci
+        # klik na existujúci TextItem
         for item in scene.items(scene_pos):
             if isinstance(item, TextItem):
                 self.text_item = item
                 item.setSelected(True)
                 item.setFocus(Qt.FocusReason.MouseFocusReason)
                 self.sync_panel()
+
+                # --- tooltip pre TextItem ---
+                show_layer_tooltip(item, event, manager.view.viewport())
                 return
 
         # nový textbox
         self.text_item = TextItem("Sem píš text")
         self.text_item.setPos(scene_pos)
-
         scene.addItem(self.text_item)
         self.text_item.setSelected(True)
         self.text_item.setFocus(Qt.FocusReason.MouseFocusReason)
-
         manager.add_to_undo(self.text_item)
         self.sync_panel()
+
+        # --- tooltip aj pre nový textbox ---
+        show_layer_tooltip(self.text_item, event, manager.view.viewport())
 
     def mouseMove(self, manager, event):
         pass  # nič – rieši TextItem

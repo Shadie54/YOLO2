@@ -16,6 +16,10 @@ class ToolManager:
         self.last_pos = None
         self.first_move_done = False
 
+        #polyline_dashed
+        self.dash_segment = 10
+        self.dash_gap = 5
+
         # --- AA ---
         self.antialiasing = True
 
@@ -35,11 +39,13 @@ class ToolManager:
         from .polycurve import PolycurveTool
         from .text import TextTool
         from .select import SelectTool
+        from .polyline_dashed import PolylineDashedTool
 
         return {
             "PENCIL": PencilTool(),
             "ERASER": EraserTool(),
             "LINE": LineTool(),
+            "POLYLINE_DASHED": PolylineDashedTool(),
             "POLYLINE": PolylineTool(),
             "POLYCURVE": PolycurveTool(),
             "TEXT": TextTool(manager=self),

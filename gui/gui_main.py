@@ -4,7 +4,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QToolBar, QFileDialog,
     QDockWidget, QPlainTextEdit, QLabel, QSlider, QWidget,
-    QBoxLayout, QHBoxLayout, QFontComboBox, QSpinBox, QPushButton
+    QBoxLayout, QHBoxLayout, QVBoxLayout, QFontComboBox, QSpinBox, QPushButton, QFrame
 )
 from PyQt6.QtGui import QIcon, QImage, QPainter, QAction, QActionGroup, QFont
 from PyQt6.QtCore import Qt, QSize, QRectF, QSettings
@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
         ICON_DIR = BASE_DIR / "assets" / "icons"
         MODEL_PATH = BASE_DIR / "models" / "best.pt"
 
+        self.setWindowIcon(QIcon(str(ICON_DIR / "yolocat.ico")))
         # ---------- Default settings ----------
         self.settings = {
             "overwrite_original": False,
@@ -78,6 +79,8 @@ class MainWindow(QMainWindow):
 
         # ---------- Text Tool Panel ----------
         self.init_text_panel(ICON_DIR)
+        # ---------- Polyline dash Panel ----------
+        self.init_dash_panel()
 
         # ---------- Shortcuts ----------
         register_shortcuts(self)
@@ -185,6 +188,7 @@ class MainWindow(QMainWindow):
 
                 # 🔥 vždy aktualizuj panel
                 self.update_text_panel_visibility(tool_name)
+                self.update_dash_panel_visibility(tool_name)
 
             act.triggered.connect(handler)
 
@@ -201,6 +205,7 @@ class MainWindow(QMainWindow):
         tool_btn("select.png", "Select", "SELECT", tooltip="Copy Select (S)")
         tool_btn("pencil.png", "Pencil", "PENCIL", tooltip="Pencil (C)")
         tool_btn("line.png", "Line", "LINE", tooltip="Line (L)")
+        tool_btn("line_dashed.png", "Polyline_dashed", "POLYLINE_DASHED", tooltip="POLYLINE_DASHED (X)")
         tool_btn("polyline.png", "Polyline", "POLYLINE", tooltip="Polyline (P)")
         tool_btn("polycurve.png", "Polycurve", "POLYCURVE", tooltip="Polycurve (V)")
         tool_btn("eraser.png", "Eraser", "ERASER", tooltip="Guma (E)")
@@ -377,6 +382,117 @@ class MainWindow(QMainWindow):
             self.text_panel.move(center_x, self.view.geometry().top() + offset_y)
         else:
             self.text_panel.setVisible(False)
+
+    # ============================
+    # Polyline Dashed Panel
+    # ============================
+    def init_dash_panel(self):
+        # Frameless panel ako TextTool
+        self.dash_panel = QWidget(self, flags=Qt.WindowType.Tool)
+        self.dash_panel.setWindowTitle("Dash Settings")
+        self.dash_panel.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        self.dash_panel.setVisible(False)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+
+        # Pevná šírka labelov, aby slideri boli rovnako dlhí
+        label_width = 100
+
+        # Helper funkcia pre jeden riadok
+        def make_row(name, min_val, max_val, default_val, setter_attr):
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(6)
+
+            label = QLabel(name)
+            label.setFixedWidth(label_width)
+
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(min_val, max_val)
+            slider.setValue(default_val)
+
+            value_label = QLabel(str(default_val))
+            value_label.setFixedWidth(30)
+            value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            value_label.setStyleSheet("""
+                background-color: rgba(0,0,0,180);
+                color: white;
+                font-weight: bold;
+                padding: 2px;
+                border-radius: 4px;
+            """)
+
+            # Live update – aktualizuje ToolManager a preview hneď
+            def on_change(val):
+                setattr(self.tool_manager, setter_attr, val)
+                value_label.setText(str(val))
+                if self.tool_manager.current_tool == "POLYLINE_DASHED" and self.tool_manager.current_poly_points:
+                    path = self.tool_manager.create_standard_path(self.tool_manager.current_poly_points)
+                    item = self.tool_manager.current_tool_obj._make_dashed_item(self.tool_manager, path)
+                    self.tool_manager._update_preview(item)
+
+            slider.valueChanged.connect(on_change)
+
+            row_layout.addWidget(label)
+            row_layout.addWidget(slider)
+            row_layout.addWidget(value_label)
+
+            return row_layout, slider
+
+        # Segment length
+        seg_layout, self.segment_slider = make_row(
+            "Dĺžka čiary", 1, 100, self.tool_manager.dash_segment, "dash_segment"
+        )
+        layout.addLayout(seg_layout)
+
+        # Gap length
+        gap_layout, self.gap_slider = make_row(
+            "Dĺžka medzery", 0, 100, self.tool_manager.dash_gap, "dash_gap"
+        )
+        layout.addLayout(gap_layout)
+
+        self.dash_panel.setLayout(layout)
+
+        # Panel je draggable rovnako ako TextTool
+        self.dash_panel.mousePressEvent = self.mousePressEventTextPanel
+        self.dash_panel.mouseMoveEvent = self.mouseMoveEventTextPanel
+        self.dash_panel.mouseReleaseEvent = self.mouseReleaseEventTextPanel
+
+    def set_dash_segment(self, val):
+        self.tool_manager.dash_segment = val
+        if self.tool_manager.current_tool == "POLYLINE_DASHED" and self.tool_manager.current_poly_points:
+            path = self.tool_manager.create_standard_path(self.tool_manager.current_poly_points)
+            item = self.tool_manager.current_tool_obj._make_dashed_item(self.tool_manager, path)
+            self.tool_manager._update_preview(item)
+
+    def set_dash_gap(self, val):
+        self.tool_manager.dash_gap = val
+        if self.tool_manager.current_tool == "POLYLINE_DASHED" and self.tool_manager.current_poly_points:
+            path = self.tool_manager.create_standard_path(self.tool_manager.current_poly_points)
+            item = self.tool_manager.current_tool_obj._make_dashed_item(self.tool_manager, path)
+            self.tool_manager._update_preview(item)
+
+    # Live update helper
+    def _refresh_dashed_preview(self):
+        tm = self.tool_manager
+        tool = tm.current_tool_obj
+        if tm.current_tool == "POLYLINE_DASHED" and len(tm.current_poly_points) > 1:
+            path = tm.create_standard_path(tm.current_poly_points)
+            if hasattr(tool, "_make_dashed_item"):
+                tm._update_preview(tool._make_dashed_item(tm, path))
+
+    # Zobrazenie/skrytie panelu
+    def update_dash_panel_visibility(self, tool_name):
+        if tool_name == "POLYLINE_DASHED":
+            self.dash_panel.setVisible(True)
+
+            offset_y = 160  # doladiteľné, aby neprekryvalo text panel
+            center_x = self.view.geometry().left() + self.view.width() // 2 - self.dash_panel.width() // 2
+            self.dash_panel.move(center_x, self.view.geometry().top() + offset_y)
+        else:
+            self.dash_panel.setVisible(False)
 
     # ============================
     # Image Folder / Navigation

@@ -1,128 +1,72 @@
-# test_selection_rotate.py
-import sys, math
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QGraphicsRectItem
-)
-from PyQt6.QtGui import QPen, QColor, QPainter, QPixmap
-from PyQt6.QtCore import Qt, QRectF, QPointF
+# tools/polyline_dashed.py
+from PyQt6.QtWidgets import QGraphicsPathItem
+from PyQt6.QtGui import QPainterPath, QPen, QColor
+from PyQt6.QtCore import Qt
 
-class SelectionItem(QGraphicsPixmapItem):
-    def __init__(self, pixmap):
-        super().__init__(pixmap)
-        self.setFlags(
-            QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
-            QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable
-        )
-        self.setAcceptHoverEvents(True)
-        self.setZValue(1000)
+class PolylineDashedTool:
+    """Polyline s prerušovanou čiarou. Nastavenia: brush size, dash segment a gap."""
 
-        # ROTATION
-        self.rotating = False
-        self.start_angle = 0
-        self.start_rotation = 0
-
-    def mousePressEvent(self, event):
-        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-            self.rotating = True
-            center = self.mapToScene(self.boundingRect().center())
-            mouse = event.scenePos()
-            dx = mouse.x() - center.x()
-            dy = mouse.y() - center.y()
-            self.start_angle = math.degrees(math.atan2(dy, dx))
-            self.start_rotation = self.rotation()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self.rotating:
-            center = self.mapToScene(self.boundingRect().center())
-            mouse = event.scenePos()
-            dx = mouse.x() - center.x()
-            dy = mouse.y() - center.y()
-            angle = math.degrees(math.atan2(dy, dx))
-            diff = angle - self.start_angle
-            self.setRotation(self.start_rotation + diff)
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        self.rotating = False
-        super().mouseReleaseEvent(event)
-
-# ----------------- Scene -----------------
-class SelectionScene(QGraphicsScene):
-    def __init__(self, background_pixmap):
-        super().__init__()
-        self.background_pixmap = background_pixmap
-        self.origin = None
-        self.temp_rect = None
-        self.copied_item = None
-
-        self.bg_item = QGraphicsPixmapItem(self.background_pixmap)
-        self.bg_item.setZValue(-1000)
-        self.addItem(self.bg_item)
-
-    def mousePressEvent(self, event):
-        item = self.itemAt(event.scenePos(), self.views()[0].transform())
-        if item is None or item == self.bg_item:
-            self.origin = event.scenePos()
-            self.temp_rect = QGraphicsRectItem(QRectF(self.origin, self.origin))
-            pen = QPen(QColor(0,120,215),2,Qt.PenStyle.DashLine)
-            self.temp_rect.setPen(pen)
-            self.temp_rect.setBrush(QColor(0,120,215,50))
-            self.temp_rect.setZValue(2000)
-            self.addItem(self.temp_rect)
-        else:
-            super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self.temp_rect:
-            rect = QRectF(self.origin, event.scenePos()).normalized()
-            self.temp_rect.setRect(rect)
-        else:
-            super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if self.temp_rect:
-            rect = self.temp_rect.rect()
-            if rect.width()>5 and rect.height()>5:
-                pixmap = self.background_pixmap.copy(
-                    int(rect.x()), int(rect.y()), int(rect.width()), int(rect.height())
-                )
-                item = SelectionItem(pixmap)
-                item.setPos(rect.topLeft())
-                self.addItem(item)
-                item.setSelected(True)
-            self.removeItem(self.temp_rect)
-            self.temp_rect = None
-        else:
-            super().mouseReleaseEvent(event)
-
-# ----------------- View -----------------
-class GraphicsView(QGraphicsView):
-    def __init__(self, scene):
-        super().__init__(scene)
-        self.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-# ----------------- MainWindow -----------------
-class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Selection Tool + Rotate")
-        pixmap = QPixmap("test.jpg")
-        self.scene = SelectionScene(pixmap)
-        self.view = GraphicsView(self.scene)
-        self.setCentralWidget(self.view)
+        self.current_path_item = None
+        self.path = None
+        self.last_point = None
 
-# ----------------- Main -----------------
-def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.resize(900,600)
-    window.show()
-    sys.exit(app.exec())
+    def mousePress(self, tm, event):
+        view = tm.view
+        scene_pos = view.mapToScene(event.position().toPoint())
 
-if __name__=="__main__":
-    main()
+        # začiatok novej polyline
+        if not self.path:
+            self.path = QPainterPath()
+            self.path.moveTo(scene_pos)
+            self.current_path_item = QGraphicsPathItem(self.path)
+
+            pen = QPen(QColor(0, 0, 0), tm.brush_size)
+            pen.setStyle(Qt.PenStyle.CustomDashLine)
+            pen.setDashPattern([tm.dash_segment, tm.dash_gap])
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            self.current_path_item.setPen(pen)
+
+            view.scene.addItem(self.current_path_item)
+
+        else:
+            # pridanie ďalšieho bodu
+            self.path.lineTo(scene_pos)
+            self.current_path_item.setPath(self.path)
+
+        self.last_point = scene_pos
+
+    def mouseMove(self, tm, event):
+        if self.path and self.last_point:
+            view = tm.view
+            scene_pos = view.mapToScene(event.position().toPoint())
+            tmp_path = QPainterPath(self.path)
+            tmp_path.lineTo(scene_pos)
+            self.current_path_item.setPath(tmp_path)
+
+    def mouseRelease(self, tm, event):
+        # polyline sa dokončí až po finish()
+        pass
+
+    def finish(self, tm):
+        """Ukončí aktuálnu polyline a uloží do undo stacku."""
+        if self.current_path_item:
+            tm.view.undo_stack.append(self.current_path_item)
+        self.current_path_item = None
+        self.path = None
+        self.last_point = None
+
+    def set_brush_size(self, tm, size):
+        """Dynamicky meni brush size počas kreslenia"""
+        if self.current_path_item:
+            pen = self.current_path_item.pen()
+            pen.setWidth(size)
+            self.current_path_item.setPen(pen)
+
+    def set_dash_pattern(self, tm, segment, gap):
+        """Dynamicky meni dash pattern počas kreslenia"""
+        if self.current_path_item:
+            pen = self.current_path_item.pen()
+            pen.setDashPattern([segment, gap])
+            self.current_path_item.setPen(pen)
